@@ -1,0 +1,26 @@
+#!/bin/sh
+#
+# Expand Root partition to max extent, remove itslef and reboot
+#
+
+case "$1" in
+  start)
+    echo "Expanding root partition..."
+    fdisk /dev/mmcblk0 <<EOF
+d
+2
+n
+p
+2
+
+
+w
+EOF
+    rm $(realpath $0)
+    mv /etc/init.d/resizefs /etc/init.d/S11resizefs
+    reboot
+    ;;
+  *)
+	echo "Usage: $0 {start}"
+	exit 1
+esac

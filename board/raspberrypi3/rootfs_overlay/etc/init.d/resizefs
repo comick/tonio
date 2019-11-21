@@ -1,0 +1,17 @@
+#!/bin/sh
+#
+# Resize root file system to max extent.
+#
+
+case "$1" in
+  start)
+    echo "Resizing root file system..."
+    resize2fs /dev/mmcblk0p2
+    if [ $? -eq 0 ]; then
+        rm $(realpath $0)
+    fi
+    ;;
+  *)
+	echo "Usage: $0 {start}"
+	exit 1
+esac

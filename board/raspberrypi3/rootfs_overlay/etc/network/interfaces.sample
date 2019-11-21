@@ -1,0 +1,14 @@
+auto lo
+iface lo inet loopback
+
+allow-hotplug eth0
+auto eth0
+
+auto wlan0
+iface wlan0 inet dhcp
+  udhcpc_opts -t 10
+  wireless_mode managed
+  wireless_essid my_essid
+  pre-up wpa_supplicant -B -D wext -i wlan0 -c /etc/wpa_supplicant.conf
+  post-down killall -q wpa_supplicant
+

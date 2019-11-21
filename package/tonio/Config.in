@@ -1,0 +1,11 @@
+menuconfig BR2_PACKAGE_TONIO
+    bool "tonio"
+    depends on BR2_PACKAGE_WIRINGPI
+    depends on BR2_PACKAGE_ALSA_LIB
+    depends on BR2_PACKAGE_LIBMICROHTTPD
+    depends on BR2_PACKAGE_VLC
+    depends on BR2_PACKAGE_HOST_PKGCONF
+
+    help
+        tonio is a juke box for children
+
