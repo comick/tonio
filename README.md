@@ -59,10 +59,10 @@ Reference assembly coming soon! Or maybe not.
 Building the root file system
 -----------------------------
 
-Download Buildroot into some folder, say `$HOME/buildroot-2019.02.07`.
-Version 2019.02.07 was used so far. The project may move to subsequent LTS versions of build root when avaibale.
+[Download Buildroot](https://buildroot.org/download.html) and extract into some folder, say `$HOME/buildroot-2020.02`.
+Version 2020.02 was used so far. The project tries to align with current LTS version of Buildroot.
 
-Clone the project in your favorite folder, say `$HOME/tonio`.
+Clone this project in your favorite folder, say `$HOME/tonio`.
 
 Setup wireless. Assumption is made that your wireless network is WPA2.
 Find out `wpa_supplicant.conf.sample` in desired board `rootfs_overlay/etc/init.d`, change things and copy to `wpa_supplicant.conf`.
@@ -71,7 +71,7 @@ Same for `rootfs_overlay/etc/network/interfaces`. Copy `rootfs_overlay/etc/netwo
 > Access point functionality can be offered for initial geek-free setup. Not done yet, see TODO for contributing.
 
 ```
-$ cd $HOME/buildroot-2019.02.07
+$ cd $HOME/buildroot-2020.02
 $ make BR2_EXTERNAL=$HOME/tonio tonio_pi3_defconfig
 $ make
 ```
