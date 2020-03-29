@@ -4,25 +4,144 @@
         <title>Tonio</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
         <script type="text/javascript">
-            setInterval(function () {
-            var xmlHttp = new XMLHttpRequest();
-            xmlHttp.onreadystatechange = function () {
-                if (xmlHttp.readyState === 4 && xmlHttp.status === 200) {
-                    var current_card = JSON.parse(xmlHttp.responseText);
-                    if (current_card.present) {
-                        document.getElementById('selected_card').innerHTML = current_card.id;
-                    } else {
-                        document.getElementById('selected_card').innerHTML = 'none';
+            /**
+             * Copyright (c) 2020 Michele Comignano <comick@gmail.com>
+             * This file is part of Tonio.
+             *
+             * Tonio is free software: you can redistribute it and/or modify
+             * it under the terms of the GNU General Public License as published by
+             * the Free Software Foundation, either version 3 of the License, or
+             * (at your option) any later version.
+             *
+             * Tonio is distributed in the hope that it will be useful,
+             * but WITHOUT ANY WARRANTY; without even the implied warranty of
+             * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+             * GNU General Public License for more details.
+             *
+             * You should have received a copy of the GNU General Public License
+             * along with Tonio.  If not, see <http://www.gnu.org/licenses/>.
+             */
+            window.onload = function () {
+                window.stage = (function () {
+
+                    var currentStageId;
+
+                    var stages = {
+
+                        status: (function () {
+
+                            var currentTagElem = document.getElementById('current-tag');
+
+                            function displayCurrentTag() {
+                                var xmlHttp = new XMLHttpRequest();
+                                xmlHttp.onreadystatechange = function () {
+                                    if (xmlHttp.readyState === 4 && xmlHttp.status === 200) {
+                                        var statusResponse = JSON.parse(xmlHttp.responseText);
+                                        if (statusResponse.present) {
+                                            currentTagElem.innerHTML = statusResponse.id;
+                                        } else {
+                                            currentTagElem.innerHTML = 'none';
+                                        }
+                                    }
+                                }
+                                xmlHttp.open("GET", "/status", true);
+                                xmlHttp.send(null);
+                            }
+
+                            var refreshCurrentTag;
+
+                            return {
+                                open: function (rootElem) {
+                                    currentTagElem.innerHTML = 'none';
+                                    displayCurrentTag();
+                                    refreshCurrentTag = setInterval(displayCurrentTag, 2000);
+                                },
+                                close: function (rootElem) {
+                                    clearInterval(refreshCurrentTag);
+                                }
+                            }
+                        }()),
+
+                        library: (function () {
+
+                            return {
+                                open: function (rootElem) {
+                                },
+                                close: function (rootElem) {
+                                }
+                            }
+                        }()),
+
+                        log: (function () {
+
+                            function displayLog(rootElem) {
+
+                                var xmlHttp = new XMLHttpRequest();
+                                xmlHttp.onreadystatechange = function () {
+                                    if (xmlHttp.readyState === 4 && xmlHttp.status === 200) {
+                                        rootElem.innerHTML = xmlHttp.responseText.split("\n").reverse().join("\n");
+                                    }
+                                }
+                                xmlHttp.open("GET", "/log", true);
+                                xmlHttp.send(null);
+                            }
+
+                            var refreshLog;
+
+                            return {
+                                open: function (rootElem) {
+                                    rootElem.innerHTML = "Loading...";
+                                    displayLog(rootElem);
+                                    refreshLog = setInterval(displayLog.bind(null, rootElem), 2000);
+                                },
+                                close: function (rootElem) {
+                                    clearInterval(refreshLog);
+                                }
+                            }
+                        }())
+                    };
+
+                    return function (stageId) {
+
+                        if (!stages.hasOwnProperty(stageId))
+                            return false;
+
+                        if (currentStageId) {
+                            var previousRootElem = document.getElementById(currentStageId + '-stage');
+                            previousRootElem.style = 'display: none';
+                            stages[currentStageId].close(previousRootElem);
+                        }
+
+                        currentStageId = stageId;
+                        var currentRootElem = document.getElementById(currentStageId + '-stage')
+                        stages[currentStageId].open(currentRootElem);
+                        currentRootElem.style = 'display: block';
+                        window.location.hash = '#' + currentStageId;
+                        return true;
                     }
-                }
-            }
-            xmlHttp.open("GET", "/current", true); // true for asynchronous 
-            xmlHttp.send(null);
-        }, 2000);
+
+                }());
+
+                var hash = window.location.hash.substr(1);
+                (hash && stage(hash)) || stage('status');
+            };
         </script>
     </head>
     <body>
-        <div>Detected card: </div><pre id="selected_card"></pre>
+
+
+        <ul>
+            <li onclick="stage('status');"><a href="#status">Status</a></li>
+            <li onclick="stage('library');"><a href="#library">Library</a></li>
+            <li onclick="stage('log');"><a href="#log">Log</a></li>
+        </ul>
+        <div id="status-stage" style="display: none">
+            <div style="float: left">Current tag:&nbsp;</div><pre id="current-tag"></pre>
+        </div>
+        <pre id="log-stage" style="display: none"></pre>
+        <div id="library-stage" style="display: none">Maybe one day.</div>
+
     </body>
 </html>

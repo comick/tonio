@@ -19,6 +19,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "http.h"
 #include "tonio.h"
@@ -29,10 +31,8 @@
 static char *_card_present_json_fmt = "{\"present\":true,\"id\":\"%02X%02X%02X%02X\"}";
 static char *_card_missing_json = "{\"present\":false}";
 
-static char *_index_html = NULL;
-static long _index_html_len = 0;
-
 static struct MHD_Daemon *_mhd_daemon;
+static struct MHD_Response *_root_response;
 
 static int _handle_current_card(void *cls, struct MHD_Connection *connection,
         const char *url,
@@ -79,14 +79,34 @@ static int _handle_root(void *cls, struct MHD_Connection *connection,
         const char *upload_data,
         size_t *upload_data_size, void **con_cls) {
 
-    struct MHD_Response *response;
     int ret;
 
     syslog(LOG_DEBUG, "Root requested");
 
-    response = MHD_create_response_from_buffer(_index_html_len,
-            (void*) _index_html, MHD_RESPMEM_PERSISTENT);
-    P_CHECK(response, return -1);
+    ret = MHD_queue_response(connection, MHD_HTTP_OK, _root_response);
+
+    return ret;
+}
+
+static int _handle_log(void *cls, struct MHD_Connection *connection,
+        const char *url,
+        const char *method, const char *version,
+        const char *upload_data,
+        size_t *upload_data_size, void **con_cls) {
+
+    struct MHD_Response *response;
+    int ret;
+    struct stat log_stat;
+
+    syslog(LOG_DEBUG, "Log requested");
+
+    int log_fd = open("/var/log/messages", O_RDONLY);
+    I_CHECK(log_fd, return MHD_NO);
+    I_CHECK(fstat(log_fd, &log_stat), return MHD_NO);
+
+    response = MHD_create_response_from_fd(log_stat.st_size, log_fd);
+
+    P_CHECK(response, return MHD_NO);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_HTML);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);
@@ -95,20 +115,7 @@ static int _handle_root(void *cls, struct MHD_Connection *connection,
 }
 
 void tn_http_init(uint8_t *selected_card_id) {
-    // Load index in mem
-    FILE *index_html_file = fopen("/usr/share/tonio/index.html", "rb");
-
-    if (index_html_file) {
-        fseek(index_html_file, 0, SEEK_END);
-        _index_html_len = ftell(index_html_file);
-        fseek(index_html_file, 0, SEEK_SET);
-        _index_html = malloc(_index_html_len);
-        if (_index_html) {
-            fread(_index_html, 1, _index_html_len, index_html_file);
-        }
-        fclose(index_html_file);
-    }
-
+    struct stat index_stat;
 
     _mhd_daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD | MHD_USE_DUAL_STACK,
             PORT, NULL, NULL,
@@ -116,20 +123,26 @@ void tn_http_init(uint8_t *selected_card_id) {
             MHD_OPTION_END);
     P_CHECK(_mhd_daemon, goto http_init_cleanup);
 
+    int index_fd = open("/usr/share/tonio/index.html", O_RDONLY);
+    I_CHECK(index_fd, return MHD_NO);
+    I_CHECK(fstat(index_fd, &index_stat), return MHD_NO);
+
+    _root_response = MHD_create_response_from_fd(index_stat.st_size, index_fd);
+    MHD_add_response_header(_root_response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_HTML);
+
+
     syslog(LOG_INFO, "HTTP Initialized on port %d", PORT);
     return;
 
 http_init_cleanup:
 
     syslog(LOG_ERR, "HTTP Initialization failed");
-    free(_index_html);
 
 }
 
 void tn_http_stop() {
+    MHD_destroy_response(_root_response);
     MHD_stop_daemon(_mhd_daemon);
-    _index_html_len = 0;
-    free(_index_html);
 }
 
 int tn_http_handle_request(void *cls, struct MHD_Connection *conn,
@@ -140,11 +153,14 @@ int tn_http_handle_request(void *cls, struct MHD_Connection *conn,
 
     int ret;
 
-    if (strcmp("/current", url) == 0) {
+    if (strcmp("/status", url) == 0) {
         ret = _handle_current_card(cls, conn, url, method, version,
                 upload_data, upload_data_size, con_cls);
     } else if (strcmp("/", url) == 0) {
         ret = _handle_root(cls, conn, url, method, version,
+                upload_data, upload_data_size, con_cls);
+    } else if (strcmp("/log", url) == 0) {
+        ret = _handle_log(cls, conn, url, method, version,
                 upload_data, upload_data_size, con_cls);
     }
     return ret;
