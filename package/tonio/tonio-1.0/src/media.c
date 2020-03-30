@@ -95,6 +95,18 @@ static void _post_is_playing(const struct libvlc_event_t *event, void *user_data
     sem_post(is_playing);
 }
 
+static char *_error_track_name = "error";
+
+char *tn_media_track_name() {
+    int current = tn_media_track_current();
+    libvlc_media_t *current_media = libvlc_media_list_item_at_index(_media_list, current);
+    P_CHECK(current_media, return &_error_track_name);
+
+    char *name = libvlc_media_get_mrl(current_media);
+    libvlc_media_release(current_media);
+    return name;
+}
+
 bool tn_media_play(uint8_t *card_id) {
     bool played = false;
     libvlc_media_t *media = NULL;
@@ -193,6 +205,37 @@ play_cleanup:
     if (media != NULL) libvlc_media_release(media);
 
     return played;
+}
+
+bool tn_media_is_playing() {
+    return _media_list_player != NULL && libvlc_media_list_player_is_playing(_media_list_player);
+}
+
+int tn_media_track_current() {
+    if (_media_list_player == NULL) return -1;
+
+    libvlc_media_t *curr_media = NULL;
+    libvlc_media_player_t *curr_media_player = NULL;
+
+    curr_media_player = libvlc_media_list_player_get_media_player(_media_list_player);
+    P_CHECK(curr_media_player, goto track_current_clean);
+
+    curr_media = libvlc_media_player_get_media(curr_media_player);
+    P_CHECK(curr_media, goto track_current_clean);
+
+    return libvlc_media_list_index_of_item(_media_list, curr_media);
+
+track_current_clean:
+    if (curr_media_player != NULL) libvlc_media_player_release(curr_media_player);
+    if (curr_media != NULL) libvlc_media_release(curr_media);
+    return -1;
+}
+
+int tn_media_track_total() {
+    if (_media_list == NULL) return -1;
+
+    return libvlc_media_list_count(_media_list);
+
 }
 
 void tn_media_next(void) {

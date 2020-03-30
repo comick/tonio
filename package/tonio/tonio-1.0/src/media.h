@@ -24,6 +24,10 @@
 void tn_media_init(char *);
 
 bool tn_media_play(uint8_t *);
+bool tn_media_is_playing();
+int tn_media_track_current();
+int tn_media_track_total();
+char *tn_media_track_name();
 void tn_media_next(void);
 void tn_media_previous(void);
 void tn_media_stop(void);

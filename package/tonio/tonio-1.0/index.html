@@ -4,7 +4,57 @@
         <title>Tonio</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
 
+            body {
+                background-color: #44475a;
+                color: #f8f8f2;
+                font-family: sans-serif;
+            }
+
+            ul {
+                list-style-type: none;
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+            }
+
+            li {
+                float: left;
+            }
+
+
+            a {
+                color: #8be9fd;
+            }
+            a:visited {
+                color: #bd93f9;
+            }
+
+            li a, li a:visited {
+                display: block;
+                color: #f8f8f2;
+                text-align: center;
+                padding: 1em 1em;
+                font-weight: bold;
+                text-decoration: none;
+            }
+
+            li a:hover:not(.active) {
+                background-color: #6272a4;
+            }
+
+            .active {
+                background-color: #282a36;
+            }
+
+            .stage {
+                padding: 1em;
+                background-color: #282a36;
+                display: none;
+            }
+
+        </style>
         <script type="text/javascript">
             /**
              * Copyright (c) 2020 Michele Comignano <comick@gmail.com>
@@ -33,17 +83,19 @@
                         status: (function () {
 
                             var currentTagElem = document.getElementById('current-tag');
+                            var currentTrackElem = document.getElementById('current-track');
+                            var totalTracksElem = document.getElementById('total-tracks');
+                            var currentTrackResElem = document.getElementById('current-track-res');
 
-                            function displayCurrentTag() {
+                            function displayStatus() {
                                 var xmlHttp = new XMLHttpRequest();
                                 xmlHttp.onreadystatechange = function () {
                                     if (xmlHttp.readyState === 4 && xmlHttp.status === 200) {
                                         var statusResponse = JSON.parse(xmlHttp.responseText);
-                                        if (statusResponse.present) {
-                                            currentTagElem.innerHTML = statusResponse.id;
-                                        } else {
-                                            currentTagElem.innerHTML = 'none';
-                                        }
+                                        currentTagElem.innerHTML = (statusResponse.present && statusResponse.id) || 'none';
+                                        currentTrackElem.innerHTML = (typeof statusResponse.track_current === 'number') ? statusResponse.track_current : '-';
+                                        totalTracksElem.innerHTML = (statusResponse.track_total && statusResponse.track_total) || '-';
+                                        currentTrackResElem.innerHTML = (statusResponse.track_name && statusResponse.track_name) || '-';
                                     }
                                 }
                                 xmlHttp.open("GET", "/status", true);
@@ -55,8 +107,8 @@
                             return {
                                 open: function (rootElem) {
                                     currentTagElem.innerHTML = 'none';
-                                    displayCurrentTag();
-                                    refreshCurrentTag = setInterval(displayCurrentTag, 2000);
+                                    displayStatus();
+                                    refreshCurrentTag = setInterval(displayStatus, 2000);
                                 },
                                 close: function (rootElem) {
                                     clearInterval(refreshCurrentTag);
@@ -67,10 +119,8 @@
                         library: (function () {
 
                             return {
-                                open: function (rootElem) {
-                                },
-                                close: function (rootElem) {
-                                }
+                                open: function (rootElem) { },
+                                close: function (rootElem) { }
                             }
                         }()),
 
@@ -100,7 +150,16 @@
                                     clearInterval(refreshLog);
                                 }
                             }
-                        }())
+                        }()),
+
+                        info: (function () {
+
+                            return {
+                                open: function (rootElem) { },
+                                close: function (rootElem) { }
+                            }
+                        }()),
+
                     };
 
                     return function (stageId) {
@@ -112,6 +171,7 @@
                             var previousRootElem = document.getElementById(currentStageId + '-stage');
                             previousRootElem.style = 'display: none';
                             stages[currentStageId].close(previousRootElem);
+                            document.getElementById(currentStageId + '-href').classList.toggle('active');
                         }
 
                         currentStageId = stageId;
@@ -119,6 +179,7 @@
                         stages[currentStageId].open(currentRootElem);
                         currentRootElem.style = 'display: block';
                         window.location.hash = '#' + currentStageId;
+                        document.getElementById(currentStageId + '-href').classList.toggle('active');
                         return true;
                     }
 
@@ -131,17 +192,26 @@
     </head>
     <body>
 
+        <h1>Tonio control panel</h1>
 
         <ul>
-            <li onclick="stage('status');"><a href="#status">Status</a></li>
-            <li onclick="stage('library');"><a href="#library">Library</a></li>
-            <li onclick="stage('log');"><a href="#log">Log</a></li>
+            <li onclick="stage('status');"><a id="status-href" href="#status">Status</a></li>
+            <li onclick="stage('library');"><a id="library-href" href="#library">Library</a></li>
+            <li onclick="stage('log');"><a id="log-href" href="#log">Log</a></li>
+            <li onclick="stage('info');" style="float:right"><a id="info-href" href="#info">Info</a></li>
         </ul>
-        <div id="status-stage" style="display: none">
-            <div style="float: left">Current tag:&nbsp;</div><pre id="current-tag"></pre>
-        </div>
-        <pre id="log-stage" style="display: none"></pre>
-        <div id="library-stage" style="display: none">Maybe one day.</div>
 
+        <div id="status-stage" class="stage">
+            <div>Current tag: <code id="current-tag">none</code></div>
+            <div>Current track: <code id="current-track">-</code></div>
+            <div>Total tracks: <code id="total-tracks">-</code></div>
+            <div>Current Track Resource: <code id="current-track-res">-</code></div>
+        </div>
+        <code id="log-stage" class="stage"></code>
+        <div id="library-stage" class="stage">Maybe one day.</div>
+        <div id="info-stage" class="stage">
+            <p>Tonio is free juke-box software for children and beyond</p>
+            <p>For more information, please reach the project web site at <a href="https://github.com/comick/tonio/">https://github.com/comick/tonio/</a>.</p>           
+        </div>
     </body>
 </html>

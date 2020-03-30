@@ -24,10 +24,12 @@
 
 #include "http.h"
 #include "tonio.h"
+#include "media.h"
 
 #define MIME_JSON "application/json"
 #define MIME_HTML "text/html"
 
+static char *_card_playing_json_fmt = "{\"present\":true,\"id\":\"%02X%02X%02X%02X\",\"track_current\":%d,\"track_total\":%d,\"track_name\":\"%s\"}";
 static char *_card_present_json_fmt = "{\"present\":true,\"id\":\"%02X%02X%02X%02X\"}";
 static char *_card_missing_json = "{\"present\":false}";
 
@@ -48,7 +50,20 @@ static int _handle_current_card(void *cls, struct MHD_Connection *connection,
     uint8_t card_present = card_id[0] | card_id[1] | card_id[2] | card_id[3];
 
     enum MHD_ResponseMemoryMode mem_mode;
-    if (card_present) {
+    if (tn_media_is_playing()) {
+        int current_track = tn_media_track_current();
+        int track_total = tn_media_track_total();
+        char *track_name = tn_media_track_name();
+        page_len = snprintf(NULL, 0, _card_playing_json_fmt,
+                card_id[0], card_id[1], card_id[2], card_id[3],
+                current_track, track_total, track_name);
+        page = malloc(page_len + 1);
+        snprintf(page, page_len + 1, _card_playing_json_fmt,
+                card_id[0], card_id[1], card_id[2], card_id[3],
+                current_track, track_total, track_name);
+
+        mem_mode = MHD_RESPMEM_MUST_FREE;
+    } else if (card_present) {
         page_len = snprintf(NULL, 0, _card_present_json_fmt,
                 card_id[0], card_id[1], card_id[2], card_id[3]);
         page = malloc(page_len + 1);
@@ -124,8 +139,8 @@ void tn_http_init(uint8_t *selected_card_id) {
     P_CHECK(_mhd_daemon, goto http_init_cleanup);
 
     int index_fd = open("/usr/share/tonio/index.html", O_RDONLY);
-    I_CHECK(index_fd, return MHD_NO);
-    I_CHECK(fstat(index_fd, &index_stat), return MHD_NO);
+    I_CHECK(index_fd, goto http_init_cleanup);
+    I_CHECK(fstat(index_fd, &index_stat), goto http_init_cleanup);
 
     _root_response = MHD_create_response_from_fd(index_stat.st_size, index_fd);
     MHD_add_response_header(_root_response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_HTML);
