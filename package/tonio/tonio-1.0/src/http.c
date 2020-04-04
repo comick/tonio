@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <dirent.h>
 
 #include "http.h"
 #include "tonio.h"
@@ -28,10 +29,13 @@
 
 #define MIME_JSON "application/json"
 #define MIME_HTML "text/html"
+#define MIME_TEXT_PLAIN "text/plain"
 
 static char *_card_playing_json_fmt = "{\"present\":true,\"id\":\"%02X%02X%02X%02X\",\"track_current\":%d,\"track_total\":%d,\"track_name\":\"%s\"}";
 static char *_card_present_json_fmt = "{\"present\":true,\"id\":\"%02X%02X%02X%02X\"}";
 static char *_card_missing_json = "{\"present\":false}";
+static const char *_LIBRARY_ROOT = "/library";
+
 
 static struct MHD_Daemon *_mhd_daemon;
 static struct MHD_Response *_root_response;
@@ -122,9 +126,131 @@ static int _handle_log(void *cls, struct MHD_Connection *connection,
     response = MHD_create_response_from_fd(log_stat.st_size, log_fd);
 
     P_CHECK(response, return MHD_NO);
-    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_HTML);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);
+
+    return ret;
+}
+
+typedef struct {
+    DIR *dir;
+    bool done;
+} tn_library_tags_status_t;
+
+
+static ssize_t writestuff(void *cls,
+        uint64_t pos,
+        char *buf,
+        size_t max) {
+    tn_library_tags_status_t *status = cls;
+    DIR *dir = status->dir;
+    const char *begin = "[";
+    const char *end = "]";
+    const char *quote = "\"";
+    const char *sep = ",";
+    struct dirent *ent;
+
+    if (status->done) return MHD_CONTENT_READER_END_OF_STREAM;
+    
+    if (pos == 0) {
+        memcpy(buf, begin, strlen(begin));
+        return strlen(begin);
+    }
+
+    errno = 0;
+    ent = readdir(dir);
+    if (ent == NULL) {
+        status->done = true;
+        memcpy(buf, end, strlen(end));
+        return strlen(end);
+    }
+    
+    if (ent->d_type != DT_DIR || strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
+        return 0;
+    }
+
+    int offset = 0;
+
+    if (pos != strlen(begin)) {
+        memcpy(buf + offset, sep, strlen(sep));
+        offset += strlen(sep);
+    }
+
+    memcpy(buf + offset, quote, strlen(quote));
+    offset += strlen(quote);
+
+    memcpy(buf + offset, ent->d_name, strlen(ent->d_name));
+    offset += strlen(ent->d_name);
+
+    memcpy(buf + offset, quote, strlen(quote));
+    offset += strlen(quote);
+
+    return offset;
+}
+
+void freestuff(void *cls) {
+    tn_library_tags_status_t *sts = cls;
+    DIR *dir = sts->dir;
+    closedir(dir);
+    free(sts);
+}
+
+static int _handle_library(void *cls, struct MHD_Connection *connection,
+        const char *url,
+        const char *method, const char *version,
+        const char *upload_data,
+        size_t *upload_data_size, void **con_cls) {
+
+    struct MHD_Response *response;
+    int ret;
+
+    syslog(LOG_DEBUG, "Library requested");
+
+    DIR *dir = opendir(MEDIA_FOLDER);
+    P_CHECK(dir, return MHD_NO);
+
+    tn_library_tags_status_t *sts = malloc(sizeof(tn_library_tags_status_t));
+    sts->dir = dir;
+    sts->done = false;
+
+    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 100000, writestuff, sts, freestuff);
+    P_CHECK(response, return MHD_NO);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_JSON);
+    ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+    MHD_destroy_response(response);
+
+    return ret;
+}
+
+static int _handle_playlist(void *cls, struct MHD_Connection *connection,
+        const char *url,
+        const char *method, const char *version,
+        const char *upload_data,
+        size_t *upload_data_size, void **con_cls) {
+
+    struct MHD_Response *response;
+    int ret;
+    struct stat playlist_stat;
+
+    const char *playlist_id = url + strlen(_LIBRARY_ROOT) + 1;
+
+    char *file_name = malloc(strlen(MEDIA_FOLDER) + 2 + strlen(playlist_id) * 2 + strlen(".m3u"));
+    sprintf(file_name, "%s/%s/%s.m3u", MEDIA_FOLDER, playlist_id, playlist_id);
+
+    syslog(LOG_DEBUG, "Playlist requested: %s @ %s", playlist_id, file_name);
+
+    int playlist_fd = open(file_name, O_RDONLY);
+    I_CHECK(playlist_fd, return MHD_NO);
+    I_CHECK(fstat(playlist_fd, &playlist_stat), return MHD_NO);
+
+    response = MHD_create_response_from_fd(playlist_stat.st_size, playlist_fd);
+
+    P_CHECK(response, return MHD_NO);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
+    ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+    MHD_destroy_response(response);
+    free(file_name);
 
     return ret;
 }
@@ -166,7 +292,7 @@ int tn_http_handle_request(void *cls, struct MHD_Connection *conn,
         const char *upload_data,
         size_t *upload_data_size, void **con_cls) {
 
-    int ret;
+    int ret = MHD_NO;
 
     if (strcmp("/status", url) == 0) {
         ret = _handle_current_card(cls, conn, url, method, version,
@@ -177,6 +303,13 @@ int tn_http_handle_request(void *cls, struct MHD_Connection *conn,
     } else if (strcmp("/log", url) == 0) {
         ret = _handle_log(cls, conn, url, method, version,
                 upload_data, upload_data_size, con_cls);
+    } else if (strcmp(_LIBRARY_ROOT, url) == 0) {
+        ret = _handle_library(cls, conn, url, method, version,
+                upload_data, upload_data_size, con_cls);
+    } else if (strncmp(_LIBRARY_ROOT, url, strlen(_LIBRARY_ROOT)) == 0) {
+        ret = _handle_playlist(cls, conn, url, method, version,
+                upload_data, upload_data_size, con_cls);
     }
+
     return ret;
 }

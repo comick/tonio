@@ -6,20 +6,29 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
 
+            html { 
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
             body {
                 background-color: #44475a;
                 color: #f8f8f2;
                 font-family: sans-serif;
+                height: 100%;
+                margin: 0;
+                padding: 0;
             }
 
-            ul {
+            ul.menu {
                 list-style-type: none;
                 margin: 0;
                 padding: 0;
                 overflow: hidden;
             }
 
-            li {
+            ul.menu li {
                 float: left;
             }
 
@@ -52,6 +61,12 @@
                 padding: 1em;
                 background-color: #282a36;
                 display: none;
+                overflow: auto;
+            }
+
+            .log {
+                white-space: pre;
+                font-family: monospace;
             }
 
         </style>
@@ -88,18 +103,17 @@
                             var currentTrackResElem = document.getElementById('current-track-res');
 
                             function displayStatus() {
-                                var xmlHttp = new XMLHttpRequest();
-                                xmlHttp.onreadystatechange = function () {
-                                    if (xmlHttp.readyState === 4 && xmlHttp.status === 200) {
-                                        var statusResponse = JSON.parse(xmlHttp.responseText);
-                                        currentTagElem.innerHTML = (statusResponse.present && statusResponse.id) || 'none';
-                                        currentTrackElem.innerHTML = (typeof statusResponse.track_current === 'number') ? statusResponse.track_current : '-';
-                                        totalTracksElem.innerHTML = (statusResponse.track_total && statusResponse.track_total) || '-';
-                                        currentTrackResElem.innerHTML = (statusResponse.track_name && statusResponse.track_name) || '-';
-                                    }
-                                }
-                                xmlHttp.open("GET", "/status", true);
-                                xmlHttp.send(null);
+                                fetch('/status')
+                                        .then(resp => {
+                                            return resp.json();
+                                        })
+                                        .then(statusResponse => {
+                                            currentTagElem.innerHTML = (statusResponse.present && statusResponse.id) || 'none';
+                                            currentTrackElem.innerHTML = (typeof statusResponse.track_current === 'number') ? statusResponse.track_current : '-';
+                                            totalTracksElem.innerHTML = (statusResponse.track_total && statusResponse.track_total) || '-';
+                                            currentTrackResElem.innerHTML = (statusResponse.track_name && statusResponse.track_name) || '-';
+                                        });
+
                             }
 
                             var refreshCurrentTag;
@@ -119,7 +133,44 @@
                         library: (function () {
 
                             return {
-                                open: function (rootElem) { },
+                                open: function (rootElem) {
+                                    fetch('/library')
+                                            .then(resp => {
+                                                return resp.json();
+                                            })
+                                            .then(libraryTags => {
+                                                rootElem.innerHTML = '';
+                                                var libraryItemsElem = document.createElement('ul');
+                                                rootElem.appendChild(libraryItemsElem);
+
+                                                libraryTags.forEach(function (tagId) {
+
+                                                    // Tag id starts list
+                                                    var libraryItemElem = document.createElement('li');
+                                                    libraryItemElem.innerHTML = tagId;
+                                                    libraryItemsElem.appendChild(libraryItemElem);
+
+                                                    var tracksListELem = document.createElement('ol');
+                                                    libraryItemsElem.appendChild(tracksListELem);
+
+                                                    fetch('/library/' + tagId)
+                                                            .then(resp => {
+                                                                return resp.text();
+                                                            })
+                                                            .then(playlist => {
+                                                                var tracks = playlist.match(/[^\n]+/g);
+                                                                tracks.forEach(function (track) {
+                                                                    var trackElem = document.createElement('li');
+                                                                    trackElem.innerHTML = track;
+                                                                    tracksListELem.appendChild(trackElem);
+
+                                                                });
+                                                            });
+
+                                                });
+                                            });
+
+                                },
                                 close: function (rootElem) { }
                             }
                         }()),
@@ -127,15 +178,13 @@
                         log: (function () {
 
                             function displayLog(rootElem) {
-
-                                var xmlHttp = new XMLHttpRequest();
-                                xmlHttp.onreadystatechange = function () {
-                                    if (xmlHttp.readyState === 4 && xmlHttp.status === 200) {
-                                        rootElem.innerHTML = xmlHttp.responseText.split("\n").reverse().join("\n");
-                                    }
-                                }
-                                xmlHttp.open("GET", "/log", true);
-                                xmlHttp.send(null);
+                                fetch('/log')
+                                        .then(resp => {
+                                            return resp.text();
+                                        })
+                                        .then(log => {
+                                            rootElem.innerHTML = log.match(/[^\n]+/g).reverse().join('\n');
+                                        });
                             }
 
                             var refreshLog;
@@ -152,7 +201,7 @@
                             }
                         }()),
 
-                        info: (function () {
+                        about: (function () {
 
                             return {
                                 open: function (rootElem) { },
@@ -192,13 +241,11 @@
     </head>
     <body>
 
-        <h1>Tonio control panel</h1>
-
-        <ul>
+        <ul class="menu">
             <li onclick="stage('status');"><a id="status-href" href="#status">Status</a></li>
             <li onclick="stage('library');"><a id="library-href" href="#library">Library</a></li>
             <li onclick="stage('log');"><a id="log-href" href="#log">Log</a></li>
-            <li onclick="stage('info');" style="float:right"><a id="info-href" href="#info">Info</a></li>
+            <li onclick="stage('about');" style="float:right"><a id="about-href" href="#about">About</a></li>
         </ul>
 
         <div id="status-stage" class="stage">
@@ -207,9 +254,9 @@
             <div>Total tracks: <code id="total-tracks">-</code></div>
             <div>Current Track Resource: <code id="current-track-res">-</code></div>
         </div>
-        <code id="log-stage" class="stage"></code>
-        <div id="library-stage" class="stage">Maybe one day.</div>
-        <div id="info-stage" class="stage">
+        <div id="log-stage" class="stage log"></div>
+        <div id="library-stage" class="stage"></div>
+        <div id="about-stage" class="stage">
             <p>Tonio is free juke-box software for children and beyond</p>
             <p>For more information, please reach the project web site at <a href="https://github.com/comick/tonio/">https://github.com/comick/tonio/</a>.</p>           
         </div>

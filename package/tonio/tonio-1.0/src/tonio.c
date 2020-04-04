@@ -31,8 +31,6 @@
 #include "http.h"
 #include "media.h"
 
-#define MEDIA_FOLDER "/usr/share/tonio"
-
 int main(int argc, char** argv) {
     MFRC522_Status_t ret;
     uint8_t ret_int;

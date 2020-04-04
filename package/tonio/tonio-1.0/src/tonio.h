@@ -23,6 +23,8 @@
 #include <errno.h>
 #include <syslog.h>
 
+#define MEDIA_FOLDER "/usr/share/tonio"
+
 #define PIN_PREV 1
 #define PIN_NEXT 4
 
