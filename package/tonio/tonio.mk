@@ -16,7 +16,7 @@ endef
 
 define TONIO_INSTALL_TARGET_CMDS
     $(INSTALL) -D -m 0755 $(@D)/tonio $(TARGET_DIR)/usr/bin
-    $(INSTALL) -D -m 0755 $(@D)/index.html $(TARGET_DIR)/usr/share/tonio
+    $(INSTALL) -D -m 0755 $(@D)/index.html $(TARGET_DIR)/usr/share/tonio/www
 endef
 
 define TONIO_INSTALL_INIT_SYSV

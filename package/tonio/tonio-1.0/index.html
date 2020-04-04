@@ -103,16 +103,14 @@
                             var currentTrackResElem = document.getElementById('current-track-res');
 
                             function displayStatus() {
-                                fetch('/status')
-                                        .then(resp => {
-                                            return resp.json();
-                                        })
-                                        .then(statusResponse => {
-                                            currentTagElem.innerHTML = (statusResponse.present && statusResponse.id) || 'none';
-                                            currentTrackElem.innerHTML = (typeof statusResponse.track_current === 'number') ? statusResponse.track_current : '-';
-                                            totalTracksElem.innerHTML = (statusResponse.track_total && statusResponse.track_total) || '-';
-                                            currentTrackResElem.innerHTML = (statusResponse.track_name && statusResponse.track_name) || '-';
-                                        });
+                                fetch('/status').then(resp => {
+                                    return resp.json();
+                                }).then(statusResponse => {
+                                    currentTagElem.innerHTML = (statusResponse.present && statusResponse.id) || 'none';
+                                    currentTrackElem.innerHTML = (typeof statusResponse.track_current === 'number') ? statusResponse.track_current : '-';
+                                    totalTracksElem.innerHTML = (statusResponse.track_total && statusResponse.track_total) || '-';
+                                    currentTrackResElem.innerHTML = (statusResponse.track_name && statusResponse.track_name) || '-';
+                                });
 
                             }
 
@@ -134,41 +132,38 @@
 
                             return {
                                 open: function (rootElem) {
-                                    fetch('/library')
-                                            .then(resp => {
-                                                return resp.json();
-                                            })
-                                            .then(libraryTags => {
-                                                rootElem.innerHTML = '';
-                                                var libraryItemsElem = document.createElement('ul');
-                                                rootElem.appendChild(libraryItemsElem);
+                                    rootElem.innerHTML = 'Loading...';
+                                    fetch('/library').then(resp => {
+                                        return resp.json();
+                                    }).then(libraryTags => {
+                                        rootElem.innerHTML = '';
+                                        var libraryItemsElem = document.createElement('ul');
+                                        rootElem.appendChild(libraryItemsElem);
 
-                                                libraryTags.forEach(function (tagId) {
+                                        libraryTags.forEach(function (tagId) {
 
-                                                    // Tag id starts list
-                                                    var libraryItemElem = document.createElement('li');
-                                                    libraryItemElem.innerHTML = tagId;
-                                                    libraryItemsElem.appendChild(libraryItemElem);
+                                            // Tag id starts list
+                                            var libraryItemElem = document.createElement('li');
+                                            libraryItemElem.innerHTML = tagId;
+                                            libraryItemsElem.appendChild(libraryItemElem);
 
-                                                    var tracksListELem = document.createElement('ol');
-                                                    libraryItemsElem.appendChild(tracksListELem);
+                                            var tracksListELem = document.createElement('ol');
+                                            libraryItemsElem.appendChild(tracksListELem);
 
-                                                    fetch('/library/' + tagId)
-                                                            .then(resp => {
-                                                                return resp.text();
-                                                            })
-                                                            .then(playlist => {
-                                                                var tracks = playlist.match(/[^\n]+/g);
-                                                                tracks.forEach(function (track) {
-                                                                    var trackElem = document.createElement('li');
-                                                                    trackElem.innerHTML = track;
-                                                                    tracksListELem.appendChild(trackElem);
-
-                                                                });
-                                                            });
+                                            fetch('/library/' + tagId).then(resp => {
+                                                return resp.text();
+                                            }).then(playlist => {
+                                                var tracks = playlist.match(/[^\n]+/g);
+                                                tracks.forEach(function (track) {
+                                                    var trackElem = document.createElement('li');
+                                                    trackElem.innerHTML = track;
+                                                    tracksListELem.appendChild(trackElem);
 
                                                 });
                                             });
+
+                                        });
+                                    });
 
                                 },
                                 close: function (rootElem) { }
@@ -178,13 +173,11 @@
                         log: (function () {
 
                             function displayLog(rootElem) {
-                                fetch('/log')
-                                        .then(resp => {
-                                            return resp.text();
-                                        })
-                                        .then(log => {
-                                            rootElem.innerHTML = log.match(/[^\n]+/g).reverse().join('\n');
-                                        });
+                                fetch('/log').then(resp => {
+                                    return resp.text();
+                                }).then(log => {
+                                    rootElem.innerHTML = log.match(/[^\n]+/g).reverse().join('\n');
+                                });
                             }
 
                             var refreshLog;
@@ -230,7 +223,7 @@
                         window.location.hash = '#' + currentStageId;
                         document.getElementById(currentStageId + '-href').classList.toggle('active');
                         return true;
-                    }
+                    };
 
                 }());
 
@@ -257,7 +250,7 @@
         <div id="log-stage" class="stage log"></div>
         <div id="library-stage" class="stage"></div>
         <div id="about-stage" class="stage">
-            <p>Tonio is free juke-box software for children and beyond</p>
+            <p>Tonio is the free juke-box software for children and beyond</p>
             <p>For more information, please reach the project web site at <a href="https://github.com/comick/tonio/">https://github.com/comick/tonio/</a>.</p>           
         </div>
     </body>

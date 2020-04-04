@@ -1,4 +1,5 @@
 nbproject
-board/raspberrypi3/rootfs_overlay/usr/share/tonio/*
+**/rootfs_overlay/usr/share/tonio/*
 **/wpa_supplicant.conf
 **/interfaces
+**/authorized_keys

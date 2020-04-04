@@ -264,7 +264,7 @@ void tn_http_init(uint8_t *selected_card_id) {
             MHD_OPTION_END);
     P_CHECK(_mhd_daemon, goto http_init_cleanup);
 
-    int index_fd = open("/usr/share/tonio/index.html", O_RDONLY);
+    int index_fd = open("/usr/share/tonio/www/index.html", O_RDONLY);
     I_CHECK(index_fd, goto http_init_cleanup);
     I_CHECK(fstat(index_fd, &index_stat), goto http_init_cleanup);
 
