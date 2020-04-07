@@ -100,7 +100,7 @@ static char *_error_track_name = "error";
 char *tn_media_track_name() {
     int current = tn_media_track_current();
     libvlc_media_t *current_media = libvlc_media_list_item_at_index(_media_list, current);
-    P_CHECK(current_media, return &_error_track_name);
+    P_CHECK(current_media, return _error_track_name);
 
     char *name = libvlc_media_get_mrl(current_media);
     libvlc_media_release(current_media);

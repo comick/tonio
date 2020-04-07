@@ -207,7 +207,7 @@ static int _handle_library(void *cls, struct MHD_Connection *connection,
 
     syslog(LOG_DEBUG, "Library requested");
 
-    DIR *dir = opendir(MEDIA_FOLDER);
+    DIR *dir = opendir(LIBRARY_ROOT);
     P_CHECK(dir, return MHD_NO);
 
     tn_library_tags_status_t *sts = malloc(sizeof(tn_library_tags_status_t));
@@ -235,8 +235,8 @@ static int _handle_playlist(void *cls, struct MHD_Connection *connection,
 
     const char *playlist_id = url + strlen(_LIBRARY_ROOT) + 1;
 
-    char *file_name = malloc(strlen(MEDIA_FOLDER) + 2 + strlen(playlist_id) * 2 + strlen(".m3u"));
-    sprintf(file_name, "%s/%s/%s.m3u", MEDIA_FOLDER, playlist_id, playlist_id);
+    char *file_name = malloc(strlen(LIBRARY_ROOT) + 2 + strlen(playlist_id) * 2 + strlen(".m3u"));
+    sprintf(file_name, "%s/%s/%s.m3u", LIBRARY_ROOT, playlist_id, playlist_id);
 
     syslog(LOG_DEBUG, "Playlist requested: %s @ %s", playlist_id, file_name);
 

@@ -9,6 +9,9 @@ case "$1" in
     resize2fs /dev/mmcblk0p2
     if [ $? -eq 0 ]; then
         rm $(realpath $0)
+        reboot
+    else
+        echo "Could not resize root file system."
     fi
     ;;
   *)

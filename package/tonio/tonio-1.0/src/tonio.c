@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
 
     openlog("tonio", LOG_PID | LOG_CONS | LOG_PERROR, LOG_USER);
 
-    tn_media_init(MEDIA_FOLDER);
+    tn_media_init(LIBRARY_ROOT);
 
     ret = MFRC522_Init('B');
     if (ret < 0) {
