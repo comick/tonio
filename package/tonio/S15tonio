@@ -11,7 +11,7 @@ case "$1" in
 	echo "Starting tonio..."
 	mkdir -p /usr/share/tonio
         amixer cset numid=3 1
-	start-stop-daemon -S -x "$TONIO" -b -p "$PIDFILE"
+	start-stop-daemon -S -x "$TONIO" -b -m -p "$PIDFILE"
 	;;
   stop)
 	echo "Stopping tonio..."

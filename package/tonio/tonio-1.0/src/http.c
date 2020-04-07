@@ -136,14 +136,13 @@ static int _handle_log(void *cls, struct MHD_Connection *connection,
 typedef struct {
     DIR *dir;
     bool done;
-} tn_library_tags_status_t;
+} _library_tags_json_status_t;
 
-
-static ssize_t writestuff(void *cls,
+static ssize_t _library_tags_json(void *cls,
         uint64_t pos,
         char *buf,
         size_t max) {
-    tn_library_tags_status_t *status = cls;
+    _library_tags_json_status_t *status = cls;
     DIR *dir = status->dir;
     const char *begin = "[";
     const char *end = "]";
@@ -152,7 +151,7 @@ static ssize_t writestuff(void *cls,
     struct dirent *ent;
 
     if (status->done) return MHD_CONTENT_READER_END_OF_STREAM;
-    
+
     if (pos == 0) {
         memcpy(buf, begin, strlen(begin));
         return strlen(begin);
@@ -165,7 +164,7 @@ static ssize_t writestuff(void *cls,
         memcpy(buf, end, strlen(end));
         return strlen(end);
     }
-    
+
     if (ent->d_type != DT_DIR || strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
         return 0;
     }
@@ -189,8 +188,8 @@ static ssize_t writestuff(void *cls,
     return offset;
 }
 
-void freestuff(void *cls) {
-    tn_library_tags_status_t *sts = cls;
+void _library_tags_json_free(void *cls) {
+    _library_tags_json_status_t *sts = cls;
     DIR *dir = sts->dir;
     closedir(dir);
     free(sts);
@@ -210,11 +209,13 @@ static int _handle_library(void *cls, struct MHD_Connection *connection,
     DIR *dir = opendir(LIBRARY_ROOT);
     P_CHECK(dir, return MHD_NO);
 
-    tn_library_tags_status_t *sts = malloc(sizeof(tn_library_tags_status_t));
+    _library_tags_json_status_t *sts = malloc(sizeof (_library_tags_json_status_t));
     sts->dir = dir;
     sts->done = false;
 
-    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 100000, writestuff, sts, freestuff);
+    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
+            _library_tags_json, sts, _library_tags_json_free
+    );
     P_CHECK(response, return MHD_NO);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_JSON);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
