@@ -7,4 +7,3 @@ menuconfig BR2_PACKAGE_TONIO
     select BR2_PACKAGE_HOST_PKGCONF
     help
         Tonio is the free juke-box software for children and beyond!
-
