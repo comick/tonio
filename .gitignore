@@ -1,5 +1,5 @@
 nbproject
-**/rootfs_overlay/usr/share/tonio/*
+library
 **/wpa_supplicant.conf
 **/interfaces
 **/authorized_keys
