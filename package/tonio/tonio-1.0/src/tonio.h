@@ -23,7 +23,7 @@
 #include <errno.h>
 #include <syslog.h>
 
-#define LIBRARY_ROOT "/usr/share/tonio/library"
+#define LIBRARY_ROOT "/mnt/media/library"
 
 #define PIN_PREV 1
 #define PIN_NEXT 4
