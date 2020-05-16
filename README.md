@@ -70,13 +70,15 @@ Clone this project in your favorite folder, say `$HOME/tonio`.
 >
 > Access point functionality can be offered for initial geek-free setup. Not done yet, see TODO for contributing.
 
+> If you plan to access Tonio via SSH, you may want to add your key by creating `$TONIO_SRC/board/$BOARD_NAME/rootfs_overlay/root/.ssh/authorized_keys` file.
+
 ```
 $ cd $HOME/buildroot-2020.02
 $ make BR2_EXTERNAL=$HOME/tonio tonio_pi3_defconfig
 $ make
 ```
 
-wait. Buildroot is building the root image from the ground up, it will take some time. Kind half an hour or so.
+wait. Buildroot is building the root image from the ground up, it will take some time. Kind half an hour or more.
 
 When you see your command prompt again, and few lines like:
 
@@ -84,6 +86,7 @@ When you see your command prompt again, and few lines like:
 ...
 INFO: hdimage(sdcard.img): adding partition 'boot' (in MBR) from 'boot.vfat' ...
 INFO: hdimage(sdcard.img): adding partition 'rootfs' (in MBR) from 'rootfs.ext4' ...
+INFO: hdimage(sdcard.img): adding partition 'library' (in MBR) from 'library.vfat' ...
 INFO: hdimage(sdcard.img): writing MBR
 ```
 
@@ -98,11 +101,11 @@ First find out your SD card device file, say /dev/sdX, then:
 ```$ sudo dd if output/sdcard.img of=/dev/sdX && sync```
 
 Plug you SD card into the board and switch on the device.
-The system will restart twice after resizing root partition first and file system next.
 
-If wireless was configured, you should be able to access your Tonio at:
+If wireless was configured, you should be able to access your Tonio web interface at http://tonio.local.
+The web interface allows to check Tonio status, read the log and manage playlists.
 
-```$ ssh root@tonio.local```
+SSH access is also enabled by default `$ ssh root@tonio.local`. Password is `tonio`. Or none if you configured access key.
 
 Congratulations, you're done! Time to setup playlists and bind them to RFID tags.
 
@@ -110,22 +113,22 @@ Congratulations, you're done! Time to setup playlists and bind them to RFID tags
 Playlists setup
 ===============
 
-A web interface for playlist management has been started, albeit far from complete. See TODO and feel free to contribute to speed up things.
+Open the web interface status section at [http://tonio.local/#status](http://tonio.local/#status).
+Now move an unused RFID tag on the sensitive area and wait the status page to shows you the unique tag id, say `${MY_TAG_ID}`.
 
-When you place a tag, Tonio daemon looks up `/usr/share/tonio/library/` for presence of a folder named like the hex string coresponding to detected tag UUID.
-If folder is there, say `ABCDEF01`, the file `/usr/share/tonio/library/ABCDEF01/ABCDEF01.m3u` will play. That's your entry point.
-File format is the kinda-standard `m3u`, anything uderstood by vlc can be put there. Hint: web radios also work.
+Until playlist management from web UI is complete, some more work is required.
+
+Media files and playlist are meant to be copied on the `vfat` partition named `TONIO` that Tonio mounts at `/mnt/media/`.
+When you place a tag, Tonio daemon looks for the folder `/mnt/media/library/${MY_TAG_ID}`.
+If folder is there, the file `/usr/share/tonio/library/${MY_TAG_ID}/${MY_TAG_ID}.m3u` will be played. That's your entry point.
+File format is the kinda-standard `m3u`, anything uderstood by vlc can be put there. Make sure both `m3u` and media files are uploaded and paths in `m3u` are correct.
+
+> Hint: web radios also work.
+
+The web UI allows you to see the content of playlists. Later playlist management could be done without requiring the used to unplug the SD card.
 
 > The Buildroot configuration may miss some decoders, only the most commonly used are enabled.
 > Should you find some quite common decoder, please feel free to contribute improved buildroot config.
-
-Finding out your tag UUID is possible via Tonio daemon log or web UI.
-Dropbear is listening, ssh into your device and `tail -f /var/log/messages`.
-Put your tag on the sensor and see log trace. After that scp is your friend.
-
-Otherwise just navigate to [http://tonio.local/#log](http://tonio.local/#log).
-
-Once a playlist is loaded on the device, put the appropriate tag in the sensitive area, your tracks should play.
 
 
 Support and feature requests
@@ -145,5 +148,5 @@ Just in case you're out of ideas:
 - [ ] Rewrite with Ada and SPARK, children stuff can't (absolutely can't!) fail at runtime
 - [ ] Move to `pigpio`, maybe abstract gpio layer to support more boards
 - [ ] Supporting/testing more boards (eg: pi zero, orange pi, ...)
-- [ ] Strip kernel from unused modules and move to static device table to faster build and boot
+- [ ] Strip kernel even more from unused modules and move to static device table to faster build and boot
 
