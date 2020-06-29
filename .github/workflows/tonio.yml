@@ -1,0 +1,25 @@
+name: Tonio CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Fetch Buildroot
+      run: wget https://buildroot.org/downloads/buildroot-2020.02.3.tar.gz
+    - name: Unzip Buildroot
+      run: tar xzf buildroot-2020.02.3.tar.gz
+    - name: Enter buildroot
+      run: cd buildroot-2020.02.3
+    - name: Make tonio config current
+      run: make BR2_EXTERNAL=../tonio tonio_pi3_defconfig
+    - name: Make it all
+    - run: make
