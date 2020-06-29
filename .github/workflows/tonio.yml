@@ -26,3 +26,7 @@ jobs:
       with:
         name: Images
         path: output/images/
+    - name: Cache ccache folder
+      uses: actions/cache@v2
+      with:
+        path: .ccache
