@@ -1,5 +1,5 @@
 nbproject
-library
+library/*
 **/wpa_supplicant.conf
 **/interfaces
 **/authorized_keys

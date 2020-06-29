@@ -20,9 +20,4 @@ define TONIO_INSTALL_TARGET_CMDS
     $(INSTALL) -D -m 0755 $(@D)/index.html $(TARGET_DIR)/usr/share/tonio/www/index.html
 endef
 
-define TONIO_INSTALL_INIT_SYSV
-    $(INSTALL) -D -m 0755 $(BR2_EXTERNAL_TONIO_PI3_PATH)/package/tonio/S15tonio \
-        $(TARGET_DIR)/etc/init.d/S15tonio
-endef
-
 $(eval $(generic-package))

@@ -70,6 +70,7 @@ ROOTPATH_TMP="$(mktemp -d)"
 
 rm -rf "${GENIMAGE_TMP}"
 
+mkdir -p "${BR2_EXTERNAL_TONIO_PI3_PATH}/library"
 ln -sf "${BR2_EXTERNAL_TONIO_PI3_PATH}/library" "${BINARIES_DIR}/library"
 
 genimage \
