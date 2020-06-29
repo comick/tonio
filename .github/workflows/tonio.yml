@@ -29,4 +29,5 @@ jobs:
     - name: Cache ccache folder
       uses: actions/cache@v2
       with:
-        path: .ccache
+        path: ~/.ccache
+        key: ${{ runner.os }}-ccache
