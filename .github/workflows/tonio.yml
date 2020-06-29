@@ -24,8 +24,8 @@ jobs:
         make
     - uses: actions/upload-artifact@v2
       with:
-        name: Images
-        path: output/images/
+        name: Upload Images
+        path: buildroot-2020.02.3/output/images/
     - name: Cache ccache folder
       uses: actions/cache@v2
       with:
