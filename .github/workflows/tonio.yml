@@ -17,9 +17,7 @@ jobs:
       run: wget https://buildroot.org/downloads/buildroot-2020.02.3.tar.gz
     - name: Unzip Buildroot
       run: tar xzf buildroot-2020.02.3.tar.gz
-    - name: Enter Buildroot
+    - name: Build Tonio External for Raspberry PI 3
       run: cd buildroot-2020.02.3
-    - name: Use Tonio external config
-      run: make BR2_EXTERNAL=../ tonio_pi3_defconfig
-    - name: Build
-      run: make
+           make BR2_EXTERNAL=../ tonio_pi3_defconfig
+           make
