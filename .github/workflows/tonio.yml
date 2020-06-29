@@ -13,11 +13,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Fetch Buildroot
-      run: wget https://buildroot.org/downloads/buildroot-2020.02.3.tar.gz
-    - name: Unzip Buildroot
-      run: tar xzf buildroot-2020.02.3.tar.gz
-    - name: Build Tonio External for Raspberry PI 3
-      run: cd buildroot-2020.02.3
-           make BR2_EXTERNAL=../ tonio_pi3_defconfig
-           make
+    - name: Prepare
+      run: |
+        wget https://buildroot.org/downloads/buildroot-2020.02.3.tar.gz
+        tar xzf buildroot-2020.02.3.tar.gz
+    - name: Build RPi 3
+      run: |
+        cd buildroot-2020.02.3
+        make BR2_EXTERNAL=../ tonio_pi3_defconfig
+        make
