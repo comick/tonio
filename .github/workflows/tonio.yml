@@ -22,4 +22,4 @@ jobs:
     - name: Make tonio config current
       run: make BR2_EXTERNAL=../tonio tonio_pi3_defconfig
     - name: Make it all
-    - run: make
+      run: make
