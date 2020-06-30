@@ -6,32 +6,39 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  buildroot-version: 2020.02.03
+
 jobs:
   build:
 
     runs-on: ubuntu-latest
 
     steps:
+        
     - uses: actions/checkout@v2
+            
+    - name: Cache Buildroot ccache
+      uses: actions/cache@v2
+      with:
+        path: ~/.buildroot-ccache
+        key: buildroot-ccache
+        
     - name: Prepare
       run: |
-        wget https://buildroot.org/downloads/buildroot-2020.02.3.tar.gz
-        tar xzf buildroot-2020.02.3.tar.gz
+        wget https://buildroot.org/downloads/buildroot-${{ env.buildroot-version }}.tar.gz
+        tar xzf buildroot-${{ env.buildroot-version }}.tar.gz
+        
     - name: Build RPi 3
       run: |
-        cd buildroot-2020.02.3
+        cd buildroot-${{ env.buildroot-version }}
         make BR2_EXTERNAL=../ tonio_pi3_defconfig
         make
         make graph-size
         make graph-depends
         make graph-build
-        
-    - name: Cache ccache folder
-      uses: actions/cache@v2
-      with:
-        path: ~/.buildroot-ccache
-        key: buildroot-ccache
+
     - uses: actions/upload-artifact@v2
       with:
         name: Upload Build Output
-        path: buildroot-2020.02.3/output/
+        path: buildroot-${{ env.buildroot-version }}/output/
