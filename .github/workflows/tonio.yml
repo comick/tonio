@@ -34,6 +34,7 @@ jobs:
       run: |
         wget https://buildroot.org/downloads/buildroot-${{ env.buildroot-version }}.tar.gz
         tar xzf buildroot-${{ env.buildroot-version }}.tar.gz
+        sudo apt-get install graphviz python-matplotlib
         
     - name: Build RPi 3
       run: |
@@ -41,11 +42,26 @@ jobs:
         export BR2_DL_DIR=~/.buildroot-dl
         make BR2_EXTERNAL=../ tonio_pi3_defconfig
         make
+        cd output
+        tar -czvf images.tar.gz images
+    
+    - name: Upload Images
+      uses: actions/upload-artifact@v2
+      with:
+        name: Upload Build Output
+        path: 'buildroot-${{ env.buildroot-version }}/output/images.tar.gz'
+                
+    - name: Build Graphs
+      run: |
+        cd buildroot-${{ env.buildroot-version }}
         make graph-size
         make graph-depends
         make graph-build
+        cd output
+        tar -czvf graphs.tar.gz graphs
 
-    - uses: actions/upload-artifact@v2
+    - name: Upload Graphs
+      uses: actions/upload-artifact@v2
       with:
         name: Upload Build Output
-        path: buildroot-${{ env.buildroot-version }}/output/
+        path: 'buildroot-${{ env.buildroot-version }}/output/graphs.tar.gz'
