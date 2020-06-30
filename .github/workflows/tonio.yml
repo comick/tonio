@@ -22,6 +22,10 @@ jobs:
         cd buildroot-2020.02.3
         make BR2_EXTERNAL=../ tonio_pi3_defconfig
         make
+        make graph-size
+        make graph-depends
+        make graph-build
+        
     - name: Cache ccache folder
       uses: actions/cache@v2
       with:
@@ -29,5 +33,5 @@ jobs:
         key: buildroot-ccache
     - uses: actions/upload-artifact@v2
       with:
-        name: Upload Images
-        path: ~/buildroot-2020.02.3/output/images/*
+        name: Upload Build Output
+        path: buildroot-2020.02.3/output/
