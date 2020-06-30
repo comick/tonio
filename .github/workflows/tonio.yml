@@ -25,9 +25,9 @@ jobs:
     - name: Cache ccache folder
       uses: actions/cache@v2
       with:
-        path: ~/.ccache
-        key: ${{ runner.os }}-ccache
+        path: ~/.buildroot-ccache
+        key: buildroot-ccache
     - uses: actions/upload-artifact@v2
       with:
         name: Upload Images
-        path: buildroot-2020.02.3/output/images/*
+        path: ~/buildroot-2020.02.3/output/images/*
