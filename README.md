@@ -11,7 +11,7 @@ Key features
 
 Tonio turns RFID tags into keys for playing audio playlists.
 
-It supports anything that `libvlc` can play, streaming included.
+It can support anything that `libvlc` can play, streaming included.
 
 - Tonio is free software released under the terms of GNU General Public License 3
 - Tonio is _creative_ by default
@@ -127,8 +127,8 @@ File format is the kinda-standard `m3u`, anything uderstood by vlc can be put th
 
 The web UI allows you to see the content of playlists. Later playlist management could be done without requiring the used to unplug the SD card.
 
-> The Buildroot configuration may miss some decoders, only the most commonly used are enabled.
-> Should you find some quite common decoder, please feel free to contribute improved buildroot config.
+> The Buildroot configuration has a very limite set of decoders, only the most commonly used are enabled.
+> If you need more decoding capabilities, make sure decoder packages are enabled before build.
 
 
 Support and feature requests
