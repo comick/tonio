@@ -34,8 +34,9 @@
 static char *_card_playing_json_fmt = "{\"present\":true,\"id\":\"%02X%02X%02X%02X\",\"track_current\":%d,\"track_total\":%d,\"track_name\":\"%s\"}";
 static char *_card_present_json_fmt = "{\"present\":true,\"id\":\"%02X%02X%02X%02X\"}";
 static char *_card_missing_json = "{\"present\":false}";
-static const char *_LIBRARY_ROOT = "/library";
-
+static const char *_LIBRARY_URL_PATH = "/library";
+static char *_library_root = NULL;
+static size_t _library_root_len = 0;
 
 static struct MHD_Daemon *_mhd_daemon;
 static struct MHD_Response *_root_response;
@@ -206,7 +207,7 @@ static int _handle_library(void *cls, struct MHD_Connection *connection,
 
     syslog(LOG_DEBUG, "Library requested");
 
-    DIR *dir = opendir(LIBRARY_ROOT);
+    DIR *dir = opendir(_library_root);
     P_CHECK(dir, return MHD_NO);
 
     _library_tags_json_status_t *sts = malloc(sizeof (_library_tags_json_status_t));
@@ -234,10 +235,10 @@ static int _handle_playlist(void *cls, struct MHD_Connection *connection,
     int ret;
     struct stat playlist_stat;
 
-    const char *playlist_id = url + strlen(_LIBRARY_ROOT) + 1;
+    const char *playlist_id = url + strlen(_LIBRARY_URL_PATH) + 1;
 
-    char *file_name = malloc(strlen(LIBRARY_ROOT) + 2 + strlen(playlist_id) * 2 + strlen(".m3u"));
-    sprintf(file_name, "%s/%s/%s.m3u", LIBRARY_ROOT, playlist_id, playlist_id);
+    char *file_name = malloc(_library_root_len + 2 + strlen(playlist_id) * 2 + strlen(".m3u"));
+    sprintf(file_name, "%s/%s/%s.m3u", _library_root, playlist_id, playlist_id);
 
     syslog(LOG_DEBUG, "Playlist requested: %s @ %s", playlist_id, file_name);
 
@@ -256,8 +257,11 @@ static int _handle_playlist(void *cls, struct MHD_Connection *connection,
     return ret;
 }
 
-void tn_http_init(uint8_t *selected_card_id) {
+void tn_http_init(uint8_t *selected_card_id, char *library_root) {
     struct stat index_stat;
+    
+    _library_root = library_root;
+    _library_root_len = strlen(_library_root);
 
     _mhd_daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD | MHD_USE_DUAL_STACK,
             PORT, NULL, NULL,
@@ -304,10 +308,10 @@ int tn_http_handle_request(void *cls, struct MHD_Connection *conn,
     } else if (strcmp("/log", url) == 0) {
         ret = _handle_log(cls, conn, url, method, version,
                 upload_data, upload_data_size, con_cls);
-    } else if (strcmp(_LIBRARY_ROOT, url) == 0) {
+    } else if (strcmp(_LIBRARY_URL_PATH, url) == 0) {
         ret = _handle_library(cls, conn, url, method, version,
                 upload_data, upload_data_size, con_cls);
-    } else if (strncmp(_LIBRARY_ROOT, url, strlen(_LIBRARY_ROOT)) == 0) {
+    } else if (strncmp(_LIBRARY_URL_PATH, url, strlen(_LIBRARY_URL_PATH)) == 0) {
         ret = _handle_playlist(cls, conn, url, method, version,
                 upload_data, upload_data_size, con_cls);
     }

@@ -6,11 +6,12 @@
 TONIO=/usr/bin/tonio
 PIDFILE=/var/run/tonio.pid
 
+test -f /etc/default/tonio && . /etc/default/tonio
+
 case "$1" in
   start)
 	echo "Starting tonio..."
-	amixer cset numid=3 1
-	start-stop-daemon -S -x "$TONIO" -b -m -p "$PIDFILE"
+	start-stop-daemon -S -x "$TONIO" -b -m -p "$PIDFILE" -- "$TONIO_MEDIA_ROOT"
 	;;
   stop)
 	echo "Stopping tonio..."

@@ -32,6 +32,8 @@
 #include "media.h"
 
 int main(int argc, char** argv) {
+    
+    char *library_root;
     MFRC522_Status_t ret;
     uint8_t ret_int;
     //Recognized card ID
@@ -46,7 +48,7 @@ int main(int argc, char** argv) {
 
     openlog("tonio", LOG_PID | LOG_CONS | LOG_PERROR, LOG_USER);
 
-    tn_media_init(LIBRARY_ROOT);
+    tn_media_init(library_root);
 
     ret = MFRC522_Init('B');
     if (ret < 0) {
@@ -65,7 +67,7 @@ int main(int argc, char** argv) {
     pullUpDnControl(PIN_VOL_DOWN, PUD_UP);
     pullUpDnControl(PIN_VOL_UP, PUD_UP);
 
-    tn_http_init(selected_card_id);
+    tn_http_init(selected_card_id, library_root);
 
     while (true) {
         

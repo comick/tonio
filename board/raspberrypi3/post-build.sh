@@ -10,8 +10,11 @@ if [ -e ${TARGET_DIR}/etc/inittab ]; then
 tty1::respawn:/sbin/getty -L  tty1 0 vt100 # HDMI console' ${TARGET_DIR}/etc/inittab
 fi
 
-# Automount media folder
-cat << __EOF__ >> "${TARGET_DIR}/etc/inittab"
-::sysinit:/bin/mkdir -p /mnt/media                                                  │
-::sysinit:/bin/mount -t vfat /dev/mmcblk0p3 /mnt/media
-__EOF__
+# Automount tonio media folder
+if [ -e ${TARGET_DIR}/etc/inittab ]; then
+    grep -qE '^# mount tonio media folder' ${TARGET_DIR}/etc/inittab || \
+	sed -i '/now run any rc scripts/i\
+# mount tonio media folder\
+::sysinit:/bin/mkdir -p /mnt/media\
+::sysinit:/bin/mount -t vfat /dev/mmcblk0p3 /mnt/media' ${TARGET_DIR}/etc/inittab
+fi

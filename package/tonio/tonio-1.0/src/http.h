@@ -23,7 +23,7 @@
 
 #define PORT 80
 
-void tn_http_init(uint8_t *);
+void tn_http_init(uint8_t *, char *);
 void tn_http_stop(void);
 
 int tn_http_handle_request(void *cls, struct MHD_Connection *connection,
