@@ -26,8 +26,10 @@ Super simple human interface design:
 - buttons for volume up/down
 
 
-Getting started
-===============
+Getting started from source
+===========================
+
+This is guiding through getting started from sources. If you want to get started from pre-built images, take a look to the [https://github.com/comick/tonio/wiki/Quick-Start](wiki Quick Start page).
 
 Supported hardware
 ------------------
@@ -53,7 +55,7 @@ Here are the default settings, wiring pi pin numbering:
 
 Tonio daemon assumes SPI interface to RC522, connect accordingly.
 
-Reference assembly coming soon! Or maybe not.
+[Reference assembly documentation is  under progress in the wiki](https://github.com/comick/tonio/wiki/Reference-Assembly).
 
 
 Building the root file system
