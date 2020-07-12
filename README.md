@@ -29,7 +29,7 @@ Super simple human interface design:
 Getting started from source
 ===========================
 
-This is guiding through getting started from sources. If you want to get started from pre-built images, take a look to the [https://github.com/comick/tonio/wiki/Quick-Start](wiki Quick Start page).
+This is guiding through getting started from sources. If you want to get started from pre-built images, take a look to the [wiki Quick Start page](https://github.com/comick/tonio/wiki/Quick-Start).
 
 Supported hardware
 ------------------
