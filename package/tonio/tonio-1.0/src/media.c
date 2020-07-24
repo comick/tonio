@@ -32,7 +32,7 @@
 #define MIXER_CARD "default"
 #define MIXER_SELEM "PCM"
 // 0 to 1.0 limits maximum volume.
-#define VOL_MAX 0.5
+#define VOL_MAX 0.7
 
 static libvlc_instance_t * _vlc = NULL;
 static libvlc_media_list_player_t *_media_list_player = NULL;

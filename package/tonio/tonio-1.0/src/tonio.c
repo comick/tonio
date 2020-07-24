@@ -33,7 +33,7 @@
 
 int main(int argc, char** argv) {
     
-    char *library_root;
+    char *library_root = argv[1];
     MFRC522_Status_t ret;
     uint8_t ret_int;
     //Recognized card ID
@@ -130,10 +130,10 @@ int main(int argc, char** argv) {
 
             syslog(LOG_INFO, "Card removed");
 
-            MFRC522_Halt();
-
         }
     }
+
+    MFRC522_Halt();
 
     tn_media_destroy();
     tn_http_stop();
