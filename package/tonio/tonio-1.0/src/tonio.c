@@ -48,8 +48,8 @@ int main(int argc, char** argv) {
 
     openlog("tonio", LOG_PID | LOG_CONS | LOG_PERROR, LOG_USER);
 
-    tn_media_init(library_root);
-
+    tn_media_t *media = tn_media_init(library_root);
+   
     ret = MFRC522_Init('B');
     if (ret < 0) {
         syslog(LOG_CRIT, "RFID Failed to initialize");
@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
     pullUpDnControl(PIN_VOL_DOWN, PUD_UP);
     pullUpDnControl(PIN_VOL_UP, PUD_UP);
 
-    tn_http_init(selected_card_id, library_root);
+    tn_http_t *http = tn_http_init(media, selected_card_id, library_root);
 
     while (true) {
         
@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
 
             memcpy(&selected_card_id, &card_id, sizeof (card_id));
 
-            if (tn_media_play(card_id)) {
+            if (tn_media_play(media, card_id)) {
 
                 int last_prev_state = PUD_OFF;
                 int last_next_state = PUD_OFF;
@@ -99,19 +99,19 @@ int main(int argc, char** argv) {
 
                     int current_prev_state = digitalRead(PIN_PREV);
                     if (current_prev_state == PUD_DOWN && last_prev_state == PUD_OFF) {
-                        tn_media_previous();
+                        tn_media_previous(media);
                     }
                     last_prev_state = current_prev_state;
 
                     int current_next_state = digitalRead(PIN_NEXT);
                     if (current_next_state == PUD_DOWN && last_next_state == PUD_OFF) {
-                        tn_media_next();
+                        tn_media_next(media);
                     }
                     last_next_state = current_next_state;
 
                     // volume kept continuous, more pleasant.
-                    if (digitalRead(PIN_VOL_DOWN) == PUD_DOWN) tn_media_volume_down();
-                    if (digitalRead(PIN_VOL_UP) == PUD_DOWN) tn_media_volume_up();
+                    if (digitalRead(PIN_VOL_DOWN) == PUD_DOWN) tn_media_volume_down(media);
+                    if (digitalRead(PIN_VOL_UP) == PUD_DOWN) tn_media_volume_up(media);
 
                 }
 
@@ -126,7 +126,7 @@ int main(int argc, char** argv) {
             }
 
             memset(&selected_card_id, 0x00, sizeof (selected_card_id));
-            tn_media_stop();
+            tn_media_stop(media);
 
             syslog(LOG_INFO, "Card removed");
 
@@ -135,8 +135,8 @@ int main(int argc, char** argv) {
 
     MFRC522_Halt();
 
-    tn_media_destroy();
-    tn_http_stop();
+    tn_media_destroy(media);
+    tn_http_stop(http);
 
     closelog();
 

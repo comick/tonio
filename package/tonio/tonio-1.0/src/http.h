@@ -20,17 +20,14 @@
 #define HTTP_H
 
 #include <microhttpd.h>
+#include "media.h"
 
 #define PORT 80
 
-void tn_http_init(uint8_t *, char *);
-void tn_http_stop(void);
+typedef struct tn_http tn_http_t;
 
-int tn_http_handle_request(void *cls, struct MHD_Connection *connection,
-        const char *url,
-        const char *method, const char *version,
-        const char *upload_data,
-        size_t *upload_data_size, void **con_cls);
+tn_http_t *tn_http_init(tn_media_t *, uint8_t *, char *);
+void tn_http_stop(tn_http_t *);
 
 #endif /* HTTP_H */
 

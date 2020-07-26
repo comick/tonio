@@ -21,21 +21,23 @@
 
 #include <stdbool.h>
 
-void tn_media_init(char *);
+typedef struct tn_media tn_media_t;
 
-bool tn_media_play(uint8_t *);
-bool tn_media_is_playing();
-int tn_media_track_current();
-int tn_media_track_total();
-char *tn_media_track_name();
-void tn_media_next(void);
-void tn_media_previous(void);
-void tn_media_stop(void);
+tn_media_t *tn_media_init(char *);
 
-void tn_media_volume_down(void);
-void tn_media_volume_up(void);
+bool tn_media_play(tn_media_t *, uint8_t *);
+bool tn_media_is_playing(tn_media_t *);
+int tn_media_track_current(tn_media_t *);
+int tn_media_track_total(tn_media_t *);
+char *tn_media_track_name(tn_media_t *);
+void tn_media_next(tn_media_t *);
+void tn_media_previous(tn_media_t *);
+void tn_media_stop(tn_media_t *);
 
-void tn_media_destroy(void);
+void tn_media_volume_down(tn_media_t *);
+void tn_media_volume_up(tn_media_t *);
+
+void tn_media_destroy(tn_media_t *);
 
 #endif /* MEDIA_H */
 
