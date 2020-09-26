@@ -61,8 +61,8 @@ Tonio daemon assumes SPI interface to RC522, connect accordingly.
 Building the root file system
 -----------------------------
 
-[Download Buildroot](https://buildroot.org/download.html) and extract into some folder, say `$HOME/buildroot-2020.02.3`.
-Version 2020.02.3 was used so far. The project tries to align with current LTS version of Buildroot.
+[Download Buildroot](https://buildroot.org/download.html) and extract into some folder, say `$HOME/buildroot-2020.02.6`.
+Version 2020.02.6 was used so far. The project tries to align with current LTS version of Buildroot.
 
 Clone this project in your favorite folder, say `$HOME/tonio`.
 
@@ -75,7 +75,7 @@ Clone this project in your favorite folder, say `$HOME/tonio`.
 > If you plan to access Tonio via SSH, you may want to add your key by creating `$TONIO_SRC/board/$BOARD_NAME/rootfs_overlay/root/.ssh/authorized_keys` file.
 
 ```
-$ cd $HOME/buildroot-2020.02.3
+$ cd $HOME/buildroot-2020.02.6
 $ make BR2_EXTERNAL=$HOME/tonio tonio_pi3_defconfig
 $ make
 ```
