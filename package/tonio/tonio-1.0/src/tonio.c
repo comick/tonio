@@ -32,7 +32,7 @@
 #include "media.h"
 
 int main(int argc, char** argv) {
-    
+
     char *library_root = argv[1];
     MFRC522_Status_t ret;
     uint8_t ret_int;
@@ -48,8 +48,8 @@ int main(int argc, char** argv) {
 
     openlog("tonio", LOG_PID | LOG_CONS | LOG_PERROR, LOG_USER);
 
-    tn_media_t *media = tn_media_init(library_root);
-   
+    tn_media_t *media = tn_media_init(library_root, true);
+
     ret = MFRC522_Init('B');
     if (ret < 0) {
         syslog(LOG_CRIT, "RFID Failed to initialize");
@@ -70,13 +70,13 @@ int main(int argc, char** argv) {
     tn_http_t *http = tn_http_init(media, selected_card_id, library_root);
 
     while (true) {
-        
+
         syslog(LOG_INFO, "Waiting for card...");
-        
+
         while (MFRC522_Check(card_id) != MI_OK) {
             nanosleep(&poll_interval, NULL);
         }
-        
+
         syslog(LOG_INFO, "Card uid detected: %02X%02X%02X%02X", card_id[0], card_id[1], card_id[2], card_id[3]);
 
         if (MFRC522_SelectTag(card_id) == 0) {

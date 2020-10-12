@@ -22,6 +22,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <ctype.h>
+#include <sys/syslog.h>
 
 #include "http.h"
 #include "tonio.h"
@@ -93,7 +95,7 @@ static int _handle_status(void *cls, struct MHD_Connection *connection,
 
     response = MHD_create_response_from_buffer(page_len,
             (void*) page, mem_mode);
-    P_CHECK(response, return -1);
+    P_CHECK(response, return MHD_NO);
 
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_JSON);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
@@ -115,23 +117,48 @@ static int _handle_root(void *cls, struct MHD_Connection *connection,
     return MHD_queue_response(connection, MHD_HTTP_OK, self->root_response);
 }
 
+static enum MHD_Result _handle_log_offset_arg(void *cls,
+        enum MHD_ValueKind kind,
+        const char *key,
+        const char *value) {
+    if (kind == MHD_GET_ARGUMENT_KIND && strcmp("offset", key) == 0) {
+        off_t *offset_arg = (off_t *) cls;
+        size_t len = strlen(value);
+        size_t i;
+        for (i = 0; i < len && isdigit(value[i]); i++);
+        if (i == len) *offset_arg = atol(value);
+
+        return MHD_YES;
+    } else {
+        return MHD_NO;
+    }
+}
+
 static int _handle_log(void *cls, struct MHD_Connection *connection,
         const char *url,
         const char *method, const char *version,
         const char *upload_data,
         size_t *upload_data_size, void **con_cls) {
 
+    off_t log_offset = 0;
     struct MHD_Response *response;
     int ret;
-    struct stat log_stat;
 
     syslog(LOG_DEBUG, "Log requested");
 
+    // For this to really work, syslogd should have rotation disable.
     int log_fd = open("/var/log/messages", O_RDONLY);
-    I_CHECK(log_fd, return MHD_NO);
-    I_CHECK(fstat(log_fd, &log_stat), return MHD_NO);
+    off_t sz = lseek(log_fd, 0, SEEK_END);
+    I_CHECK(sz, return MHD_NO);
 
-    response = MHD_create_response_from_fd(log_stat.st_size, log_fd);
+    if (MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, _handle_log_offset_arg, &log_offset) > 0) {
+        if (log_offset >= sz) {
+            syslog(LOG_DEBUG, "Offset longer than the log itself: %ld vs %ld", log_offset, sz);
+            log_offset = 0;
+        }
+    }
+
+    response = MHD_create_response_from_fd_at_offset64(sz - log_offset, log_fd, log_offset);
 
     P_CHECK(response, return MHD_NO);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
@@ -196,7 +223,7 @@ static ssize_t _library_tags_json(void *cls,
     return offset;
 }
 
-void _library_tags_json_free(void *cls) {
+static void _library_tags_json_free(void *cls) {
     _library_tags_json_status_t *sts = cls;
     DIR *dir = sts->dir;
     closedir(dir);
@@ -267,7 +294,7 @@ static int _handle_playlist(void *cls, struct MHD_Connection *connection,
     return ret;
 }
 
-int tn_http_handle_request(void *cls, struct MHD_Connection *conn,
+enum MHD_Result tn_http_handle_request(void *cls, struct MHD_Connection *conn,
         const char *url,
         const char *method, const char *version,
         const char *upload_data,

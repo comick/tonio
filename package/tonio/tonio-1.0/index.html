@@ -69,6 +69,28 @@
                 font-family: monospace;
             }
 
+            .log .debug {
+                color: #6272a4;
+            }
+
+            .log .info {
+                font-weight: bold;
+            }
+
+            .log .warn {
+                color: #ffb86c;
+                font-weight: bold;
+            }
+
+            .log .error {
+                color: #ff5555;
+                font-weight: bold;
+            }
+
+            .log .other {
+                color: #44475a;
+            }
+
         </style>
         <script type="text/javascript">
             /**
@@ -125,7 +147,7 @@
                                 close: function (rootElem) {
                                     clearInterval(refreshCurrentTag);
                                 }
-                            }
+                            };
                         }()),
 
                         library: (function () {
@@ -167,16 +189,36 @@
 
                                 },
                                 close: function (rootElem) { }
-                            }
+                            };
                         }()),
 
                         log: (function () {
 
-                            function displayLog(rootElem) {
-                                fetch('/log').then(resp => {
-                                    return resp.text();
+                            function displayLog(rootElem, args) {
+                                fetch('/log?offset=' + args.offset).then(resp => {
+                                    return resp.arrayBuffer();
+                                }).then(buf => {
+                                    var ret = new TextDecoder("utf-8").decode(buf);
+                                    args.offset += buf.byteLength;
+                                    return ret;
                                 }).then(log => {
-                                    rootElem.innerHTML = log.match(/[^\n]+/g).reverse().join('\n');
+                                    log.match(/[^\n]+/g).forEach(trace => {
+                                        var line = document.createElement('div');
+                                        line.innerHTML = trace;
+                                        if (trace.includes("user.info tonio")) {
+                                            line.className = "log info";
+                                        } else if (trace.includes("user.err tonio")) {
+                                            line.className = "log error";
+                                        } else if (trace.includes("user.warn tonio")) {
+                                            line.className = "log warn";
+                                        } else if (trace.includes("user.debug tonio")) {
+                                            line.className = "log debug";
+                                        } else {
+                                            line.className = "log other";
+                                        }
+                                        rootElem.prepend(line);
+                                    });
+
                                 });
                             }
 
@@ -184,14 +226,15 @@
 
                             return {
                                 open: function (rootElem) {
-                                    rootElem.innerHTML = "Loading...";
-                                    displayLog(rootElem);
-                                    refreshLog = setInterval(displayLog.bind(null, rootElem), 2000);
+                                    rootElem.innerHTML = "";
+                                    var args = {offset: 0};
+                                    displayLog(rootElem, args);
+                                    refreshLog = setInterval(displayLog.bind(null, rootElem, args), 2000);
                                 },
                                 close: function (rootElem) {
                                     clearInterval(refreshLog);
                                 }
-                            }
+                            };
                         }()),
 
                         about: (function () {
@@ -199,8 +242,8 @@
                             return {
                                 open: function (rootElem) { },
                                 close: function (rootElem) { }
-                            }
-                        }()),
+                            };
+                        }())
 
                     };
 

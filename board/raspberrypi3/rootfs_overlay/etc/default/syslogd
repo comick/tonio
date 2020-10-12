@@ -1,0 +1,2 @@
+# Disables log rotation
+SYSLOGD_ARGS="-s 0"

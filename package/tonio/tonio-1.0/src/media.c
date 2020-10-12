@@ -21,6 +21,10 @@
 #include <alsa/asoundlib.h>
 #include <math.h>
 #include <semaphore.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+
 #include "uthash.h"
 
 #include "volume_mapping.h"
@@ -50,14 +54,15 @@ struct tn_media {
     tn_media_position_t *media_positions;
     snd_mixer_t *mixer;
     snd_mixer_elem_t* mixer_elem;
+    bool opt_keep_pos_file;
 };
 
-tn_media_t *tn_media_init(char *media_root) {
+tn_media_t *tn_media_init(char *media_root, bool opt_keep_pos_file) {
     // alsa mixer for volume
     snd_mixer_selem_id_t *selem_id = NULL;
 
     tn_media_t *self = malloc(sizeof (tn_media_t));
-    
+
     P_CHECK(self, goto init_error);
 
     self->curr_card_id = 0;
@@ -68,6 +73,7 @@ tn_media_t *tn_media_init(char *media_root) {
     self->media_positions = NULL;
     self->mixer = NULL;
     self->mixer_elem = NULL;
+    self->opt_keep_pos_file = opt_keep_pos_file;
 
     // libvlc for playback
     const char *vlc_args[] = {
@@ -93,15 +99,33 @@ tn_media_t *tn_media_init(char *media_root) {
     tn_media_volume_up(self);
 
 
-    // Loading playlist positions stored in file
-    /*FILE *positions_file = fopen("tonio.bin", "rb");
+    // Loading playlist positions stored in file.
+    // Failing this will not fail media initialization.
+    /*if (self->opt_keep_pos_file) {
+        char *conf_dir = getenv("XDG_CONFIG_HOME");
 
-    tn_media_position_t *stored_media_position = malloc(sizeof (tn_media_position_t));
-    P_CHECK(stored_media_position, goto init_error);
+        if (conf_dir == NULL) {
+            conf_dir = getenv("HOME");
+        }
+        if (conf_dir == NULL) {
+            struct passwd *pwd = getpwuid(getuid());
+            if (pwd != NULL) conf_dir = pwd->pw_dir;
+        }
+        if (conf_dir != NULL) {
+            FILE *positions_file = fopen("tonio.bin", "rb");
+            P_CHECK
 
-    while (!feof(positions_file)) {
-        fread(stored_media_position, sizeof (tn_media_position_t), 1, positions_file);
-        HASH_ADD_INT(self->media_positions, card_id, stored_media_position);
+            tn_media_position_t *stored_media_position = malloc(sizeof (tn_media_position_t));
+            P_CHECK(stored_media_position, goto init_error);
+
+            while (!feof(positions_file)) {
+                fread(stored_media_position, sizeof (tn_media_position_t), 1, positions_file);
+                HASH_ADD_INT(self->media_positions, card_id, stored_media_position);
+            }
+        } else {
+            syslog(LOG_ERR, "Cannot find config directory.");
+        }
+
     }*/
 
     syslog(LOG_INFO, "Media sub-system initialized");
@@ -327,7 +351,7 @@ void tn_media_stop(tn_media_t *self) {
     HASH_ADD_INT(self->media_positions, card_id, curr_media_position);
 
     self->curr_card_id = 0;
-    
+
     syslog(LOG_INFO, "Stop playing item %d at position %f", curr_i, curr_pos);
 
 stop_clean:
