@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 env:
-  buildroot-version: 2020.02.6
+  buildroot-version: 2020.02.8
 
 jobs:
   build-rpi3:
@@ -35,7 +35,7 @@ jobs:
         wget https://buildroot.org/downloads/buildroot-${{ env.buildroot-version }}.tar.gz
         tar xzf buildroot-${{ env.buildroot-version }}.tar.gz
         sudo apt-get update
-        sudo apt-get install graphviz python-matplotlib
+        sudo apt-get install graphviz python3-matplotlib
         
     - name: Build RPi 3
       run: |
