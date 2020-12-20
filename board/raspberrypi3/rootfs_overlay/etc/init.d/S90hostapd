@@ -1,0 +1,27 @@
+#!/bin/sh
+
+[ -f /etc/hostapd.conf ] || exit 0
+
+PIDFILE=/var/run/hostapd.pid
+
+case "$1" in
+        start)
+                printf "Starting hostapd: "
+                start-stop-daemon -S -x /usr/sbin/hostapd -b -m -p "$PIDFILE" -- /etc/hostapd.conf
+                [ $? = 0 ] && echo "OK" || echo "FAIL"
+                ;;
+        stop)
+                printf "Stopping hostapd: "
+                start-stop-daemon -K -x /usr/sbin/hostapd -p "$PIDFILE" -o
+                [ $? = 0 ] && echo "OK" || echo "FAIL"
+                ;;
+        restart|reload)
+                $0 stop
+                $0 start
+                ;;
+        *)
+                echo "Usage: $0 {start|stop|restart}"
+                exit 1
+esac
+
+exit 0

@@ -24,6 +24,8 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <sys/syslog.h>
+#include <iwlib.h>
+#include <microhttpd.h>
 
 #include "http.h"
 #include "tonio.h"
@@ -35,9 +37,9 @@
 #define MIME_HTML "text/html"
 #define MIME_TEXT_PLAIN "text/plain"
 
-#define CARD_PLAYING_JSON_FMT "{\"present\":true,\"id\":\"%02X%02X%02X%02X\",\"track_current\":%d,\"track_total\":%d,\"track_name\":\"%s\"}"
-#define CARD_PRESENT_JSON_FMT "{\"present\":true,\"id\":\"%02X%02X%02X%02X\"}"
-#define CARD_MISSING_JSON "{\"present\":false}"
+#define STATUS_TAG_PLAYING_JSON_FMT "{\"present\":true,\"id\":\"%02X%02X%02X%02X\",\"track_current\":%d,\"track_total\":%d,\"track_name\":\"%s\",\"internet\":false}"
+#define STATUS_TAG_PRESENT_JSON_FMT "{\"present\":true,\"id\":\"%02X%02X%02X%02X\",\"internet\":false}"
+#define STATUS_TAG_MISSING_JSON "{\"present\":false,\"internet\":false}"
 
 #define LIBRARY_URL_PATH "/library"
 
@@ -70,25 +72,25 @@ static int _handle_status(void *cls, struct MHD_Connection *connection,
         int current_track = tn_media_track_current(self->media);
         int track_total = tn_media_track_total(self->media);
         char *track_name = tn_media_track_name(self->media);
-        page_len = snprintf(NULL, 0, CARD_PLAYING_JSON_FMT,
+        page_len = snprintf(NULL, 0, STATUS_TAG_PLAYING_JSON_FMT,
                 card_id[0], card_id[1], card_id[2], card_id[3],
                 current_track, track_total, track_name);
         page = malloc(page_len + 1);
-        snprintf(page, page_len + 1, CARD_PLAYING_JSON_FMT,
+        snprintf(page, page_len + 1, STATUS_TAG_PLAYING_JSON_FMT,
                 card_id[0], card_id[1], card_id[2], card_id[3],
                 current_track, track_total, track_name);
 
         mem_mode = MHD_RESPMEM_MUST_FREE;
     } else if (card_present) {
-        page_len = snprintf(NULL, 0, CARD_PRESENT_JSON_FMT,
+        page_len = snprintf(NULL, 0, STATUS_TAG_PRESENT_JSON_FMT,
                 card_id[0], card_id[1], card_id[2], card_id[3]);
         page = malloc(page_len + 1);
-        snprintf(page, page_len + 1, CARD_PRESENT_JSON_FMT,
+        snprintf(page, page_len + 1, STATUS_TAG_PRESENT_JSON_FMT,
                 card_id[0], card_id[1], card_id[2], card_id[3]);
 
         mem_mode = MHD_RESPMEM_MUST_FREE;
     } else {
-        page = CARD_MISSING_JSON;
+        page = STATUS_TAG_MISSING_JSON;
         page_len = strlen(page);
         mem_mode = MHD_RESPMEM_PERSISTENT;
     }
@@ -159,6 +161,96 @@ static int _handle_log(void *cls, struct MHD_Connection *connection,
     }
 
     response = MHD_create_response_from_fd_at_offset64(sz - log_offset, log_fd, log_offset);
+
+    P_CHECK(response, return MHD_NO);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
+    ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+    MHD_destroy_response(response);
+
+    return ret;
+}
+
+typedef struct {
+    wireless_scan *scan_result;
+    bool done;
+} _iwlist_json_status_t;
+
+static ssize_t _iwlist_json(void *cls,
+        uint64_t pos,
+        char *buf,
+        size_t max) {
+    _iwlist_json_status_t *status = cls;
+    wireless_scan *scan_result = status->scan_result;
+    const char *begin = "[";
+    const char *end = "]";
+    const char *quote = "\"";
+    const char *sep = ",";
+
+    if (status->done) return MHD_CONTENT_READER_END_OF_STREAM;
+
+    if (pos == 0) {
+        memcpy(buf, begin, strlen(begin));
+        return strlen(begin);
+    }
+
+    if (scan_result == NULL) {
+        status->done = true;
+        memcpy(buf, end, strlen(end));
+        return strlen(end);
+    }
+
+    int offset = 0;
+
+    if (pos != strlen(begin)) {
+        memcpy(buf + offset, sep, strlen(sep));
+        offset += strlen(sep);
+    }
+
+    memcpy(buf + offset, quote, strlen(quote));
+    offset += strlen(quote);
+
+    char *essid = scan_result->b.essid;
+    memcpy(buf + offset, essid, strlen(essid));
+    offset += strlen(essid);
+    status->scan_result = scan_result->next;
+
+    memcpy(buf + offset, quote, strlen(quote));
+    offset += strlen(quote);
+
+    return offset;
+}
+
+static void _iwlist_json_free(void *cls) {
+    _iwlist_json_status_t *sts = cls;
+    free(sts);
+}
+
+static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
+        const char *url,
+        const char *method, const char *version,
+        const char *upload_data,
+        size_t *upload_data_size, void **con_cls) {
+
+    struct MHD_Response *response;
+    int ret;
+
+    wireless_scan_head head;
+    iwrange range;
+    int sock;
+
+    syslog(LOG_DEBUG, "Wireless list requested");
+
+    sock = iw_sockets_open();
+    I_CHECK(sock, return MHD_NO);
+    I_CHECK(iw_get_range_info(sock, "wlan0", &range), return MHD_NO);
+    I_CHECK(iw_scan(sock, "wlan0", range.we_version_compiled, &head), return MHD_NO);
+
+    _iwlist_json_status_t *sts = malloc(sizeof (_iwlist_json_status_t));
+    sts->scan_result = head.result;
+    sts->done = false;
+
+    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11, _iwlist_json, sts, _iwlist_json_free);
+    P_CHECK(response, return MHD_NO);
 
     P_CHECK(response, return MHD_NO);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
@@ -249,9 +341,7 @@ static int _handle_library(void *cls, struct MHD_Connection *connection,
     sts->dir = dir;
     sts->done = false;
 
-    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
-            _library_tags_json, sts, _library_tags_json_free
-            );
+    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11, _library_tags_json, sts, _library_tags_json_free);
     P_CHECK(response, return MHD_NO);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_JSON);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
@@ -310,6 +400,9 @@ enum MHD_Result tn_http_handle_request(void *cls, struct MHD_Connection *conn,
                 upload_data, upload_data_size, con_cls);
     } else if (strcmp("/log", url) == 0) {
         ret = _handle_log(cls, conn, url, method, version,
+                upload_data, upload_data_size, con_cls);
+    } else if (strcmp("/iwlist", url) == 0) {
+        ret = _handle_iwlist(cls, conn, url, method, version,
                 upload_data, upload_data_size, con_cls);
     } else if (strcmp(LIBRARY_URL_PATH, url) == 0) {
         ret = _handle_library(cls, conn, url, method, version,

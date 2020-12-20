@@ -1,5 +1,5 @@
 TARGET = tonio
-LIBS = -lwiringPi -lm $(shell pkg-config --libs libmicrohttpd libvlc alsa)
+LIBS = -lwiringPi -lm -liw $(shell pkg-config --libs libmicrohttpd libvlc alsa)
 CC = gcc
 CFLAGS = -g -Werror $(shell pkg-config --cflags libmicrohttpd libvlc alsa)
 

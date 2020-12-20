@@ -91,6 +91,31 @@
                 color: #44475a;
             }
 
+            .status-item {
+                font-weight: bold;
+            }
+
+            #inet-connected {
+                color: #50fa7b;
+            }
+            #inet-disconnected {
+                color: #ff5555;
+            }
+
+            #iwlist-reload {
+                font-size: 150%;
+                margin: 0.5em;
+            }
+
+            #iwlist-reload.enabled {
+                cursor: pointer;
+                color: #f8f8f2;
+            }
+
+            #iwlist-reload.disabled {
+                color: #6272a4;
+            }
+
         </style>
         <script type="text/javascript">
             /**
@@ -111,156 +136,162 @@
              * along with Tonio.  If not, see <http://www.gnu.org/licenses/>.
              */
             window.onload = function () {
-                window.stage = (function () {
+                window.stage = (() => {
+                    let currentStageId;
 
-                    var currentStageId;
+                    const nop = () => {
+                    };
 
-                    var stages = {
+                    const stages = {
 
-                        status: (function () {
+                        status: (() => {
+                            const currentTagElem = document.getElementById('current-tag');
+                            const currentTrackElem = document.getElementById('current-track');
+                            const totalTracksElem = document.getElementById('total-tracks');
+                            const currentTrackResElem = document.getElementById('current-track-res');
+                            const inetConnected = document.getElementById('inet-connected');
+                            const inetDisconnected = document.getElementById('inet-disconnected');
 
-                            var currentTagElem = document.getElementById('current-tag');
-                            var currentTrackElem = document.getElementById('current-track');
-                            var totalTracksElem = document.getElementById('total-tracks');
-                            var currentTrackResElem = document.getElementById('current-track-res');
+                            let refreshStatusTimer;
 
-                            function displayStatus() {
-                                fetch('/status').then(resp => {
-                                    return resp.json();
-                                }).then(statusResponse => {
-                                    currentTagElem.innerHTML = (statusResponse.present && statusResponse.id) || 'none';
-                                    currentTrackElem.innerHTML = (typeof statusResponse.track_current === 'number') ? statusResponse.track_current : '-';
-                                    totalTracksElem.innerHTML = (statusResponse.track_total && statusResponse.track_total) || '-';
-                                    currentTrackResElem.innerHTML = (statusResponse.track_name && statusResponse.track_name) || '-';
-                                });
+                            async function refreshStatus() {
+                                let statusResponse = await (await fetch('/status')).json();
+                                currentTagElem.innerHTML = (statusResponse.present && statusResponse.id) || 'none';
+                                currentTrackElem.innerHTML = (typeof statusResponse.track_current === 'number') ? statusResponse.track_current : '-';
+                                totalTracksElem.innerHTML = (statusResponse.track_total && statusResponse.track_total) || '-';
+                                currentTrackResElem.innerHTML = (statusResponse.track_name && statusResponse.track_name) || '-';
 
-                            }
-
-                            var refreshCurrentTag;
-
-                            return {
-                                open: function (rootElem) {
-                                    currentTagElem.innerHTML = 'none';
-                                    displayStatus();
-                                    refreshCurrentTag = setInterval(displayStatus, 2000);
-                                },
-                                close: function (rootElem) {
-                                    clearInterval(refreshCurrentTag);
+                                if (statusResponse.internet === true) {
+                                    inetConnected.style = 'display: block';
+                                    inetDisconnected.style = 'display: none';
+                                } else {
+                                    inetConnected.style = 'display: none';
+                                    inetDisconnected.style = 'display: block';
                                 }
-                            };
-                        }()),
 
-                        library: (function () {
-
+                                refreshStatusTimer = setTimeout(refreshStatus, 2000);
+                            }
                             return {
-                                open: function (rootElem) {
+                                open: () => {
+                                    currentTagElem.innerHTML = 'none';
+                                    refreshStatus();
+                                },
+                                close: () => clearTimeout(refreshStatusTimer)
+                            };
+                        })(),
+
+                        library: (() => ({
+                                open: async rootElem => {
                                     rootElem.innerHTML = 'Loading...';
-                                    fetch('/library').then(resp => {
-                                        return resp.json();
-                                    }).then(libraryTags => {
-                                        rootElem.innerHTML = '';
-                                        var libraryItemsElem = document.createElement('ul');
-                                        rootElem.appendChild(libraryItemsElem);
+                                    let libraryTags = await (await fetch('/library')).json();
+                                    rootElem.innerHTML = '';
+                                    let libraryItemsElem = document.createElement('ul');
+                                    rootElem.appendChild(libraryItemsElem);
 
-                                        libraryTags.forEach(function (tagId) {
+                                    libraryTags.forEach(async tagId => {
+                                        // Tag id starts list
+                                        let libraryItemElem = document.createElement('li');
+                                        libraryItemElem.innerHTML = tagId;
+                                        libraryItemsElem.appendChild(libraryItemElem);
 
-                                            // Tag id starts list
-                                            var libraryItemElem = document.createElement('li');
-                                            libraryItemElem.innerHTML = tagId;
-                                            libraryItemsElem.appendChild(libraryItemElem);
+                                        let tracksListELem = document.createElement('ol');
+                                        libraryItemsElem.appendChild(tracksListELem);
 
-                                            var tracksListELem = document.createElement('ol');
-                                            libraryItemsElem.appendChild(tracksListELem);
+                                        let playlist = await (await fetch('/library/' + tagId)).text()
 
-                                            fetch('/library/' + tagId).then(resp => {
-                                                return resp.text();
-                                            }).then(playlist => {
-                                                var tracks = playlist.match(/[^\n]+/g);
-                                                tracks.forEach(function (track) {
-                                                    var trackElem = document.createElement('li');
-                                                    trackElem.innerHTML = track;
-                                                    tracksListELem.appendChild(trackElem);
-
-                                                });
-                                            });
-
+                                        let tracks = playlist.match(/[^\n]+/g);
+                                        tracks.forEach(track => {
+                                            let trackElem = document.createElement('li');
+                                            trackElem.innerHTML = track;
+                                            tracksListELem.appendChild(trackElem);
                                         });
                                     });
-
                                 },
-                                close: function (rootElem) { }
-                            };
-                        }()),
+                                close: nop
+                            }))(),
 
-                        log: (function () {
+                        log: (() => {
+                            let refreshLogTimeout;
 
-                            function displayLog(rootElem, args) {
-                                fetch('/log?offset=' + args.offset).then(resp => {
-                                    return resp.arrayBuffer();
-                                }).then(buf => {
-                                    var ret = new TextDecoder("utf-8").decode(buf);
-                                    args.offset += buf.byteLength;
-                                    return ret;
-                                }).then(log => {
-                                    log.match(/[^\n]+/g).forEach(trace => {
-                                        var line = document.createElement('div');
-                                        line.innerHTML = trace;
-                                        if (trace.includes("user.info tonio")) {
-                                            line.className = "log info";
-                                        } else if (trace.includes("user.err tonio")) {
-                                            line.className = "log error";
-                                        } else if (trace.includes("user.warn tonio")) {
-                                            line.className = "log warn";
-                                        } else if (trace.includes("user.debug tonio")) {
-                                            line.className = "log debug";
-                                        } else {
-                                            line.className = "log other";
-                                        }
-                                        rootElem.prepend(line);
-                                    });
-
+                            async function refreshLog(rootElem, args) {
+                                let buf = await (await fetch('/log?offset=' + args.offset)).arrayBuffer();
+                                let log = new TextDecoder("utf-8").decode(buf);
+                                args.offset += buf.byteLength;
+                                log.match(/[^\n]+/g).forEach(trace => {
+                                    let line = document.createElement('div');
+                                    line.innerHTML = trace;
+                                    if (trace.includes("user.info tonio")) {
+                                        line.className = "log info";
+                                    } else if (trace.includes("user.err tonio")) {
+                                        line.className = "log error";
+                                    } else if (trace.includes("user.warn tonio")) {
+                                        line.className = "log warn";
+                                    } else if (trace.includes("user.debug tonio")) {
+                                        line.className = "log debug";
+                                    } else {
+                                        line.className = "log other";
+                                    }
+                                    rootElem.prepend(line);
                                 });
+                                setTimeout(refreshLog.bind(null, rootElem, args), 2000);
                             }
 
-                            var refreshLog;
+                            return {
+                                open: rootElem => {
+                                    rootElem.innerHTML = "";
+                                    let args = {offset: 0};
+                                    refreshLog(rootElem, args);
+                                },
+                                close: () => clearInterval(refreshLogTimeout)
+                            };
+                        })(),
+
+                        settings: (() => {
 
                             return {
-                                open: function (rootElem) {
-                                    rootElem.innerHTML = "";
-                                    var args = {offset: 0};
-                                    displayLog(rootElem, args);
-                                    refreshLog = setInterval(displayLog.bind(null, rootElem, args), 2000);
+                                open: () => {
+                                    let iwlistReload = document.getElementById('iwlist-reload');
+                                    let iwlist = document.getElementById('iwlist');
+
+                                    async function loadIwlist() {
+                                        iwlistReload.className = 'disabled';
+                                        iwlistReload.onclick = null;
+                                        iwlist.innerHTML = '';
+                                        let networks = await (await fetch('/iwlist')).json();
+                                        networks.forEach(essid => {
+                                            let network = document.createElement('option');
+                                            network.innerHTML = essid;
+                                            network.value = essid;
+                                            iwlist.appendChild(network);
+                                        });
+                                        iwlistReload.className = 'enabled';
+                                        iwlistReload.onclick = loadIwlist;
+                                    }
+                                    loadIwlist();
                                 },
-                                close: function (rootElem) {
-                                    clearInterval(refreshLog);
+                                close: () => {
                                 }
                             };
-                        }()),
+                        })(),
 
-                        about: (function () {
-
-                            return {
-                                open: function (rootElem) { },
-                                close: function (rootElem) { }
-                            };
-                        }())
+                        about: (() => ({open: nop, close: nop}))()
 
                     };
 
-                    return function (stageId) {
+                    return (stageId) => {
 
                         if (!stages.hasOwnProperty(stageId))
                             return false;
 
                         if (currentStageId) {
-                            var previousRootElem = document.getElementById(currentStageId + '-stage');
+                            let previousRootElem = document.getElementById(currentStageId + '-stage');
                             previousRootElem.style = 'display: none';
                             stages[currentStageId].close(previousRootElem);
                             document.getElementById(currentStageId + '-href').classList.toggle('active');
                         }
 
                         currentStageId = stageId;
-                        var currentRootElem = document.getElementById(currentStageId + '-stage')
+                        let currentRootElem = document.getElementById(currentStageId + '-stage')
                         stages[currentStageId].open(currentRootElem);
                         currentRootElem.style = 'display: block';
                         window.location.hash = '#' + currentStageId;
@@ -268,9 +299,9 @@
                         return true;
                     };
 
-                }());
+                })();
 
-                var hash = window.location.hash.substr(1);
+                let hash = window.location.hash.substr(1);
                 (hash && stage(hash)) || stage('status');
             };
         </script>
@@ -281,17 +312,35 @@
             <li onclick="stage('status');"><a id="status-href" href="#status">Status</a></li>
             <li onclick="stage('library');"><a id="library-href" href="#library">Library</a></li>
             <li onclick="stage('log');"><a id="log-href" href="#log">Log</a></li>
+            <li onclick="stage('settings');"><a id="settings-href" href="#settings">Settings</a></li>
             <li onclick="stage('about');" style="float:right"><a id="about-href" href="#about">About</a></li>
         </ul>
 
         <div id="status-stage" class="stage">
-            <div>Current tag: <code id="current-tag">none</code></div>
-            <div>Current track: <code id="current-track">-</code></div>
-            <div>Total tracks: <code id="total-tracks">-</code></div>
-            <div>Current Track Resource: <code id="current-track-res">-</code></div>
+            <table>
+                <tr><td>Current tag:</td><td class="status-item" id="current-tag">none</td></tr>
+                <tr><td>Current track:</td><td class="status-item" id="current-track">-</td></tr>
+                <tr><td>Total tracks:</td><td class="status-item" id="total-tracks">-</td></tr>
+                <tr><td>Current Track Resource:</td><td class="status-item" id="current-track-res">-</td></tr>
+                <tr><td>Internet:</td><td class="status-item"><span id="inet-connected" style="display:none">connected</span><span id="inet-disconnected" style="display:none">disconnected</span></td></tr>
+            </table>
         </div>
+
         <div id="log-stage" class="stage log"></div>
+
         <div id="library-stage" class="stage"></div>
+
+        <div id="settings-stage" class="stage">
+            <table>
+                <tr><td>Wireless network:</td><td><select name="iwlist" id="iwlist"></select><span id="iwlist-reload" class="disabled">&#x27f3;</span></td></tr>
+                <tr><td>Wireless password:</td><td></td></tr>
+                <tr><td>Previous track gpio pin:</td><td></td></tr>
+                <tr><td>Next track gpio pin:</td><td></td></tr>
+                <tr><td>Volume up gpio pin:</td><td></td></tr>
+                <tr><td>Volume down gpio pin:</td><td></td></tr>
+            </table>
+        </div>
+
         <div id="about-stage" class="stage">
             <p>Tonio is the free juke-box software for children and beyond</p>
             <p>For more information, please reach the project web site at <a href="https://github.com/comick/tonio/">https://github.com/comick/tonio/</a>.</p>           
