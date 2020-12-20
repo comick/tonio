@@ -18,3 +18,13 @@ if [ -e ${TARGET_DIR}/etc/inittab ]; then
 ::sysinit:/bin/mkdir -p /mnt/media\
 ::sysinit:/bin/mount -t vfat /dev/mmcblk0p3 /mnt/media' ${TARGET_DIR}/etc/inittab
 fi
+
+# Use factory interfaces config if not overridden
+if [ ! -e ${TARGET_DIR}/etc/network/interfaces ]; then
+    cp ${TARGET_DIR}/etc/network/interfaces.sample ${TARGET_DIR}/etc/network/interfaces
+fi
+
+# Use factory WPA config if not overridden
+if [ ! -e ${TARGET_DIR}/etc/wpa_supplicant.conf ]; then
+    cp ${TARGET_DIR}/etc/wpa_supplicant.conf ${TARGET_DIR}/etc/wpa_supplicant.conf
+fi

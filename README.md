@@ -3,7 +3,7 @@ Tonio is the free juke-box software for children and beyond
 
 Inspired by commercial success of _tonies®_, Tonio is the limitless free software alternative for makers with a legacy.
 
-The project consists of Tonio daemon software, implementing Jukebox functionality, and a set of Buildroot external configurations for selected boards.
+The project consists of Tonio daemon software, implementing Jukebox functionality, and a carefully crafted Buildroot external configuration for selected boards.
 
 
 Key features
@@ -11,7 +11,7 @@ Key features
 
 Tonio turns RFID tags into keys for playing audio playlists.
 
-It can support anything that `libvlc` can play, streaming included.
+It supports anything that `libvlc` can play, streaming included.
 
 - Tonio is free software released under the terms of GNU General Public License 3
 - Tonio is _creative_ by default
@@ -43,7 +43,7 @@ Wiring things together
 ----------------------
 
 Push buttons wiring is configured in `tonio.h` header.
-Here are the default settings, wiring pi pin numbering:
+Here are the default settings, using `wiringPi` pin numbering:
 
 ```
 #PIN_PREV 1
@@ -62,17 +62,9 @@ Building the root file system
 -----------------------------
 
 [Download Buildroot](https://buildroot.org/download.html) and extract into some folder, say `$HOME/buildroot-2020.02.8`.
-Version 2020.02.8 was used so far. The project tries to align with current LTS version of Buildroot.
+Version 2020.02.8 is currently used. The project tries to keep current with latest LTS version of Buildroot.
 
 Clone this project in your favorite folder, say `$HOME/tonio`.
-
-> Wireless setup is highly recommended. Assumption is made that your wireless network is WPA2.
-> Find out `wpa_supplicant.conf.sample` in desired board `rootfs_overlay/etc/init.d`, change things and copy to `wpa_supplicant.conf`.
-> Same for `rootfs_overlay/etc/network/interfaces.sample`. Copy `rootfs_overlay/etc/network/interfaces` and change essid according to your reuirements.
->
-> Access point functionality can be offered for initial geek-free setup. Not done yet, see TODO for contributing.
-
-> If you plan to access Tonio via SSH, you may want to add your key by creating `$TONIO_SRC/board/$BOARD_NAME/rootfs_overlay/root/.ssh/authorized_keys` file.
 
 ```
 $ cd $HOME/buildroot-2020.02.8
@@ -97,17 +89,24 @@ that means build is done.
 Writing image to SD card
 ------------------------
 
-Root image built successfully and you SD card image is ready.
+Root image was built successfully and you SD card image is ready.
 First find out your SD card device file, say /dev/sdX, then:
 
 ```$ sudo dd if output/sdcard.img of=/dev/sdX && sync```
 
-Plug you SD card into the board and switch on the device.
+Plug you SD card into the board and switch the device on.
 
-If wireless was configured, you should be able to access your Tonio web interface at http://tonio.local.
+Access Tonio via network
+------------------------
+
+Your tonio is up and running and new wireless network should be around: its name is `tonio` and default password `toniocartonio`. Connect to it.
+
+Once associated, access your Tonio web interface at http://tonio.local.
 The web interface allows to check Tonio status, read the log and manage playlists.
 
-SSH access is also enabled by default `$ ssh root@tonio.local`. Password is `tonio`. Or none if you configured access key.
+SSH access is also enabled by default `$ ssh root@tonio.local`. Default password is `tonio`.
+
+> HINT: before building, you may want to add your pub key to `$TONIO_SRC/board/$BOARD_NAME/rootfs_overlay/root/.ssh/authorized_keys` for faster SSH access.
 
 Congratulations, you're done! Time to setup playlists and bind them to RFID tags.
 
@@ -125,11 +124,11 @@ When you place a tag, Tonio daemon looks for the folder `/mnt/media/library/${MY
 If folder is there, the file `/usr/share/tonio/library/${MY_TAG_ID}/${MY_TAG_ID}.m3u` will be played. That's your entry point.
 File format is the kinda-standard `m3u`, anything uderstood by vlc can be put there. Make sure both `m3u` and media files are uploaded and paths in `m3u` are correct.
 
-> Hint: web radios also work.
+> Hint: web radios also work. Just make sure your tonio is connected to the Internet.
 
-The web UI allows you to see the content of playlists. Later playlist management could be done without requiring the used to unplug the SD card.
+Currently, the web UI only allows you to see the content of playlists. Later, playlist management could be done without requiring the user to unplug the SD card.
 
-> The Buildroot configuration has a very limite set of decoders, only the most commonly used are enabled.
+> The Buildroot configuration has a very limit set of decoders, only the most commonly used (vorbis, mp3) are enabled.
 > If you need more decoding capabilities, make sure decoder packages are enabled before build.
 
 
@@ -145,9 +144,9 @@ Contributing
 You're wellcome. Merge requests are the way to go.
 Just in case you're out of ideas:
 
-- [ ] Start as Access Point for initial network cofiguration
+- [ ] First time setup page
+- [ ] Configure network from web UI
 - [ ] Web interface for ordinary people to setup playlists
-- [ ] Rewrite with Ada and SPARK, children stuff can't (absolutely can't!) fail at runtime
 - [ ] Move to `pigpio`, maybe abstract gpio layer to support more boards
 - [ ] Supporting/testing more boards (eg: pi zero, orange pi, ...)
 - [ ] Strip kernel even more from unused modules and move to static device table to faster build and boot
