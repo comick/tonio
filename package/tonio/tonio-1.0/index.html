@@ -227,40 +227,76 @@
                                 return containerElem;
                             }
 
-                            function playlistRow(pos, count, resource, tracksTable) {
+                            function playlistRow(pos, resources, tracksTable, redraw) {
                                 let rowElem = itemContainer.content.firstChild.cloneNode(true);
 
-                                rowElem.appendChild(deleteButton(tracksTable, rowElem));
-                                rowElem.appendChild(upButton(pos, tracksTable, rowElem));
-                                rowElem.appendChild(downButton(pos, count, tracksTable, rowElem));
-                                
+                                rowElem.appendChild(deleteButton(pos, resources, redraw));
+                                rowElem.appendChild(upButton(pos, resources, redraw));
+                                rowElem.appendChild(downButton(pos, resources, redraw));
+
                                 let resourceName = resourceNameTpl.content.firstChild.cloneNode(true);
-                                resourceName.innerHTML = resource;
+                                resourceName.innerHTML = resources[pos];
                                 rowElem.appendChild(resourceName);
 
                                 return rowElem;
                             }
 
-                            function deleteButton(table, row) {
+                            function deleteButton(pos, resources, redraw) {
                                 let delButton = delButtonTpl.content.firstChild.cloneNode(true);
+                                delButton.onclick = () => {
+                                    resources.splice(pos, 1);
+                                    redraw();
+                                }
                                 return delButton;
                             }
 
-                            function upButton(i, table, row) {
-                                if (i === 0)
+                            function upButton(pos, resources, redraw) {
+                                if (pos === 0)
                                     return noButtonTpl.content.firstChild.cloneNode(true);
                                 else {
                                     let upButton = upButtonTpl.content.firstChild.cloneNode(true);
+                                    upButton.onclick = () => {
+                                        let tmp = resources[pos];
+                                        resources[pos] = resources[pos - 1];
+                                        resources[pos - 1 ] = tmp;
+                                        redraw();
+                                    }
                                     return upButton;
                                 }
                             }
 
-                            function downButton(i, length, table, row) {
-                                if (i === length - 1)
+                            function downButton(pos, resources, redraw) {
+                                if (pos === resources.length - 1)
                                     return noButtonTpl.content.firstChild.cloneNode(true);
                                 else {
                                     let downButton = downButtonTpl.content.firstChild.cloneNode(true);
+                                    downButton.onclick = () => {
+                                        let tmp = resources[pos];
+                                        resources[pos] = resources[pos + 1];
+                                        resources[pos + 1] = tmp;
+                                        redraw();
+                                    }
                                     return downButton;
+                                }
+                            }
+
+                            function drawPlaylist(tagId, rootElem, resources, previousTitleElem, previousTracksElem) {
+                                let titleElem = playlistTitle(tagId);
+                                if (previousTitleElem)
+                                    rootElem.replaceChild(titleElem, previousTitleElem);
+                                else
+                                    rootElem.appendChild(titleElem);
+
+                                let tracksElem = playlistTable();
+                                if (previousTracksElem)
+                                    rootElem.replaceChild(tracksElem, previousTracksElem);
+                                else
+                                    rootElem.appendChild(tracksElem);
+
+                                let redraw = drawPlaylist.bind(null, tagId, rootElem, resources, titleElem, tracksElem);
+
+                                for (let i = 0; i < resources.length; i++) {
+                                    tracksElem.appendChild(playlistRow(i, resources, tracksElem, redraw));
                                 }
                             }
 
@@ -272,17 +308,9 @@
                                     rootElem.innerHTML = '';
 
                                     libraryTags.forEach(async tagId => {
-                                        rootElem.appendChild(playlistTitle(tagId));
-
-                                        let tracksTable = playlistTable();
-                                        rootElem.appendChild(tracksTable);
-
                                         let playlist = await (await fetch('/library/' + tagId)).text();
-
                                         let resources = playlist.match(/[^\n]+/g);
-                                        resources.forEach((resource, i) => {
-                                            tracksTable.appendChild(playlistRow(i, resources.length, resource, tracksTable));
-                                        });
+                                        drawPlaylist(tagId, rootElem, resources);
                                     });
                                 },
                                 close: nop
