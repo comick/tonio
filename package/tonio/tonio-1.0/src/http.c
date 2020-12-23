@@ -41,6 +41,8 @@
 #define STATUS_TAG_PRESENT_JSON_FMT "{\"present\":true,\"id\":\"%02X%02X%02X%02X\",\"internet\":false}"
 #define STATUS_TAG_MISSING_JSON "{\"present\":false,\"internet\":false}"
 
+#define SETTINGS_JSON_FMT "{\"essid\":\"%s\",\"pin_prev\":1,\"pin_next\":4,\"pin_volup\":5,\"pin_voldown\":29,\"pin_rfid\":6,\"spi_rfid\":\"/dev/spidev0.0\"}"
+
 #define LIBRARY_URL_PATH "/library"
 
 struct tn_http {
@@ -106,6 +108,38 @@ static int _handle_status(void *cls, struct MHD_Connection *connection,
     return ret;
 }
 
+static int _handle_settings(void *cls, struct MHD_Connection *connection,
+        const char *url,
+        const char *method, const char *version,
+        const char *upload_data,
+        size_t *upload_data_size, void **con_cls) {
+
+    struct MHD_Response *response;
+    int ret;
+    char *page = "";
+    long page_len = 0;
+
+    int iw_sock = iw_sockets_open();
+    I_CHECK(iw_sock, return MHD_NO);
+    wireless_config wconfig;
+    I_CHECK(iw_get_basic_config(iw_sock, "wlan0", &wconfig), return MHD_NO);
+    iw_sockets_close(iw_sock);
+
+    page_len = snprintf(NULL, 0, SETTINGS_JSON_FMT, wconfig.essid);
+    page = malloc(page_len + 1);
+    snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid);
+
+    response = MHD_create_response_from_buffer(page_len,
+            (void*) page, MHD_RESPMEM_MUST_FREE);
+    P_CHECK(response, return MHD_NO);
+
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_JSON);
+    ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+    MHD_destroy_response(response);
+
+    return ret;
+}
+
 static int _handle_root(void *cls, struct MHD_Connection *connection,
         const char *url,
         const char *method, const char *version,
@@ -157,6 +191,7 @@ static int _handle_log(void *cls, struct MHD_Connection *connection,
         if (log_offset >= sz) {
             syslog(LOG_DEBUG, "Offset longer than the log itself: %ld vs %ld", log_offset, sz);
             log_offset = 0;
+            // TODO this is whensyslog is rotated/flushed. send some header so html restart log thing.
         }
     }
 
@@ -171,14 +206,12 @@ static int _handle_log(void *cls, struct MHD_Connection *connection,
 }
 
 typedef struct {
+    int iwsocket;
     wireless_scan *scan_result;
     bool done;
 } _iwlist_json_status_t;
 
-static ssize_t _iwlist_json(void *cls,
-        uint64_t pos,
-        char *buf,
-        size_t max) {
+static ssize_t _iwlist_json(void *cls, uint64_t pos, char *buf, size_t max) {
     _iwlist_json_status_t *status = cls;
     wireless_scan *scan_result = status->scan_result;
     const char *begin = "[";
@@ -213,6 +246,7 @@ static ssize_t _iwlist_json(void *cls,
     memcpy(buf + offset, essid, strlen(essid));
     offset += strlen(essid);
     status->scan_result = scan_result->next;
+    free(scan_result);
 
     memcpy(buf + offset, quote, strlen(quote));
     offset += strlen(quote);
@@ -222,6 +256,7 @@ static ssize_t _iwlist_json(void *cls,
 
 static void _iwlist_json_free(void *cls) {
     _iwlist_json_status_t *sts = cls;
+    iw_sockets_close(sts->iwsocket);
     free(sts);
 }
 
@@ -248,6 +283,7 @@ static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
     _iwlist_json_status_t *sts = malloc(sizeof (_iwlist_json_status_t));
     sts->scan_result = head.result;
     sts->done = false;
+    sts->iwsocket = sock;
 
     response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11, _iwlist_json, sts, _iwlist_json_free);
     P_CHECK(response, return MHD_NO);
@@ -403,6 +439,9 @@ enum MHD_Result tn_http_handle_request(void *cls, struct MHD_Connection *conn,
                 upload_data, upload_data_size, con_cls);
     } else if (strcmp("/iwlist", url) == 0) {
         ret = _handle_iwlist(cls, conn, url, method, version,
+                upload_data, upload_data_size, con_cls);
+    } else if (strcmp("/settings", url) == 0) {
+        ret = _handle_settings(cls, conn, url, method, version,
                 upload_data, upload_data_size, con_cls);
     } else if (strcmp(LIBRARY_URL_PATH, url) == 0) {
         ret = _handle_library(cls, conn, url, method, version,

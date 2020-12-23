@@ -116,6 +116,23 @@
                 color: #6272a4;
             }
 
+            .settings-adv {
+                display: none;
+            }
+
+            .track-up, .track-down, .track-del {
+                font-size: 150%;
+            }
+
+            .track-del {
+                color: #ff5555;
+            }
+
+            .track-up, .track-down {
+                color: #bd93f9;
+            }
+
+
         </style>
         <script type="text/javascript">
             /**
@@ -171,44 +188,106 @@
 
                                 refreshStatusTimer = setTimeout(refreshStatus, 2000);
                             }
+
                             return {
                                 open: () => {
                                     currentTagElem.innerHTML = 'none';
+                                    currentTrackElem.innerHTML = '-';
+                                    totalTracksElem.innerHTML = '-';
+                                    currentTrackResElem.innerHTML = '-';
+                                    inetConnected.style = 'display: none';
+                                    inetDisconnected.style = 'display: none';
+
                                     refreshStatus();
                                 },
-                                close: () => clearTimeout(refreshStatusTimer)
+                                close: () => {
+                                    clearTimeout(refreshStatusTimer);
+                                }
                             };
                         })(),
 
-                        library: (() => ({
+                        library: (() => {
+                            const plTitle = document.getElementById('playlist-title');
+                            const plContainer = document.getElementById('playlist-container');
+                            const itemContainer = document.getElementById('item-container');
+                            const delButtonTpl = document.getElementById('remove-button');
+                            const upButtonTpl = document.getElementById('up-button');
+                            const downButtonTpl = document.getElementById('down-button');
+                            const noButtonTpl = document.getElementById('no-button');
+                            const resourceNameTpl = document.getElementById('item-resource');
+
+                            function playlistTitle(title) {
+                                let titleElem = plTitle.content.firstChild.cloneNode(true);
+                                titleElem.innerHTML = title;
+                                return titleElem;
+                            }
+
+                            function playlistTable() {
+                                let containerElem = plContainer.content.firstChild.cloneNode(true);
+                                return containerElem;
+                            }
+
+                            function playlistRow(pos, count, resource, tracksTable) {
+                                let rowElem = itemContainer.content.firstChild.cloneNode(true);
+
+                                rowElem.appendChild(deleteButton(tracksTable, rowElem));
+                                rowElem.appendChild(upButton(pos, tracksTable, rowElem));
+                                rowElem.appendChild(downButton(pos, count, tracksTable, rowElem));
+                                
+                                let resourceName = resourceNameTpl.content.firstChild.cloneNode(true);
+                                resourceName.innerHTML = resource;
+                                rowElem.appendChild(resourceName);
+
+                                return rowElem;
+                            }
+
+                            function deleteButton(table, row) {
+                                let delButton = delButtonTpl.content.firstChild.cloneNode(true);
+                                return delButton;
+                            }
+
+                            function upButton(i, table, row) {
+                                if (i === 0)
+                                    return noButtonTpl.content.firstChild.cloneNode(true);
+                                else {
+                                    let upButton = upButtonTpl.content.firstChild.cloneNode(true);
+                                    return upButton;
+                                }
+                            }
+
+                            function downButton(i, length, table, row) {
+                                if (i === length - 1)
+                                    return noButtonTpl.content.firstChild.cloneNode(true);
+                                else {
+                                    let downButton = downButtonTpl.content.firstChild.cloneNode(true);
+                                    return downButton;
+                                }
+                            }
+
+                            return {
                                 open: async rootElem => {
+
                                     rootElem.innerHTML = 'Loading...';
                                     let libraryTags = await (await fetch('/library')).json();
                                     rootElem.innerHTML = '';
-                                    let libraryItemsElem = document.createElement('ul');
-                                    rootElem.appendChild(libraryItemsElem);
 
                                     libraryTags.forEach(async tagId => {
-                                        // Tag id starts list
-                                        let libraryItemElem = document.createElement('li');
-                                        libraryItemElem.innerHTML = tagId;
-                                        libraryItemsElem.appendChild(libraryItemElem);
+                                        rootElem.appendChild(playlistTitle(tagId));
 
-                                        let tracksListELem = document.createElement('ol');
-                                        libraryItemsElem.appendChild(tracksListELem);
+                                        let tracksTable = playlistTable();
+                                        rootElem.appendChild(tracksTable);
 
-                                        let playlist = await (await fetch('/library/' + tagId)).text()
+                                        let playlist = await (await fetch('/library/' + tagId)).text();
 
-                                        let tracks = playlist.match(/[^\n]+/g);
-                                        tracks.forEach(track => {
-                                            let trackElem = document.createElement('li');
-                                            trackElem.innerHTML = track;
-                                            tracksListELem.appendChild(trackElem);
+                                        let resources = playlist.match(/[^\n]+/g);
+                                        resources.forEach((resource, i) => {
+                                            tracksTable.appendChild(playlistRow(i, resources.length, resource, tracksTable));
                                         });
                                     });
                                 },
                                 close: nop
-                            }))(),
+                            }
+                        })(),
 
                         log: (() => {
                             let refreshLogTimeout;
@@ -233,7 +312,8 @@
                                     }
                                     rootElem.prepend(line);
                                 });
-                                setTimeout(refreshLog.bind(null, rootElem, args), 2000);
+                                clearTimeout(refreshLogTimeout);
+                                refreshLogTimeout = setTimeout(refreshLog.bind(null, rootElem, args), 2000);
                             }
 
                             return {
@@ -242,32 +322,54 @@
                                     let args = {offset: 0};
                                     refreshLog(rootElem, args);
                                 },
-                                close: () => clearInterval(refreshLogTimeout)
+                                close: () => clearTimeout(refreshLogTimeout)
                             };
                         })(),
 
                         settings: (() => {
 
                             return {
-                                open: () => {
-                                    let iwlistReload = document.getElementById('iwlist-reload');
-                                    let iwlist = document.getElementById('iwlist');
+                                open: async () => {
+                                    const iwlistReload = document.getElementById('iwlist-reload');
+                                    const iwlist = document.getElementById('iwlist');
+                                    const gpioPrev = document.getElementById('gpio-prev');
+                                    const gpioNext = document.getElementById('gpio-next');
+                                    const gpioVolup = document.getElementById('gpio-volup');
+                                    const gpioVoldown = document.getElementById('gpio-voldown');
+                                    const spiDev = document.getElementById('spi-dev');
 
-                                    async function loadIwlist() {
+                                    iwlist.innerHTML = '';
+
+                                    async function loadIwlist(currentEssid) {
+                                        iwlist.disabled = true;
                                         iwlistReload.className = 'disabled';
                                         iwlistReload.onclick = null;
-                                        iwlist.innerHTML = '';
                                         let networks = await (await fetch('/iwlist')).json();
+                                        iwlist.innerHTML = '';
                                         networks.forEach(essid => {
                                             let network = document.createElement('option');
-                                            network.innerHTML = essid;
+                                            if (essid == currentEssid) {
+                                                network.innerHTML = `${essid} (current)`;
+                                                network.selected = 'selected';
+                                            } else {
+                                                network.innerHTML = essid;
+                                            }
                                             network.value = essid;
                                             iwlist.appendChild(network);
                                         });
+                                        iwlist.disabled = false;
                                         iwlistReload.className = 'enabled';
-                                        iwlistReload.onclick = loadIwlist;
+                                        iwlistReload.onclick = loadIwlist.bind(null, currentEssid);
                                     }
-                                    loadIwlist();
+
+                                    let settings = await (await fetch('/settings')).json();
+                                    gpioPrev.value = settings.pin_prev;
+                                    gpioNext.value = settings.pin_next;
+                                    gpioVolup.value = settings.pin_volup;
+                                    gpioVoldown.value = settings.pin_voldown;
+                                    spiDev.value = settings.spi_rfid;
+                                    loadIwlist(settings.essid);
+
                                 },
                                 close: () => {
                                 }
@@ -307,38 +409,55 @@
         </script>
     </head>
     <body>
-
         <ul class="menu">
             <li onclick="stage('status');"><a id="status-href" href="#status">Status</a></li>
             <li onclick="stage('library');"><a id="library-href" href="#library">Library</a></li>
-            <li onclick="stage('log');"><a id="log-href" href="#log">Log</a></li>
             <li onclick="stage('settings');"><a id="settings-href" href="#settings">Settings</a></li>
+            <li onclick="stage('log');"><a id="log-href" href="#log">Log</a></li>
             <li onclick="stage('about');" style="float:right"><a id="about-href" href="#about">About</a></li>
         </ul>
 
         <div id="status-stage" class="stage">
             <table>
-                <tr><td>Current tag:</td><td class="status-item" id="current-tag">none</td></tr>
-                <tr><td>Current track:</td><td class="status-item" id="current-track">-</td></tr>
-                <tr><td>Total tracks:</td><td class="status-item" id="total-tracks">-</td></tr>
-                <tr><td>Current Track Resource:</td><td class="status-item" id="current-track-res">-</td></tr>
-                <tr><td>Internet:</td><td class="status-item"><span id="inet-connected" style="display:none">connected</span><span id="inet-disconnected" style="display:none">disconnected</span></td></tr>
+                <tr><td>Current tag:</td><td class="status-item" id="current-tag"></td></tr>
+                <tr><td>Current track:</td><td class="status-item" id="current-track"></td></tr>
+                <tr><td>Total tracks:</td><td class="status-item" id="total-tracks"></td></tr>
+                <tr><td>Current Track Resource:</td><td class="status-item" id="current-track-res"></td></tr>
+                <tr><td>Internet:</td><td class="status-item"><span id="inet-connected">connected</span><span id="inet-disconnected">disconnected</span></td></tr>
             </table>
         </div>
 
         <div id="log-stage" class="stage log"></div>
 
-        <div id="library-stage" class="stage"></div>
+        <div id="library-stage" class="stage">
+            <template id="playlist-title"><h4>Playlist title</h4></template>
+            <template id="playlist-container"><table></table></template>
+            <template id="item-container"><tr></tr></template>
+            <template id="remove-button"><td class="track-del">&#10006;</td></template>
+            <template id="up-button"><td class="track-up">&#x2bc5;</td></template>
+            <template id="down-button"><td class="track-down">&#x2bc6;</td></template>
+            <template id="no-button"><td></td></template>
+            <template id="item-resource"><td></td></template>
+
+        </div>
 
         <div id="settings-stage" class="stage">
+
             <table>
+                <tr><td colspan="2"><h4>Networking</h4></td></tr>
                 <tr><td>Wireless network:</td><td><select name="iwlist" id="iwlist"></select><span id="iwlist-reload" class="disabled">&#x27f3;</span></td></tr>
-                <tr><td>Wireless password:</td><td></td></tr>
-                <tr><td>Previous track gpio pin:</td><td></td></tr>
-                <tr><td>Next track gpio pin:</td><td></td></tr>
-                <tr><td>Volume up gpio pin:</td><td></td></tr>
-                <tr><td>Volume down gpio pin:</td><td></td></tr>
+                <tr><td>Wireless password:</td><td><input type="password" id="iwpass" name="iwpass"></td></tr>
+
+                <tr><td colspan="2"><h4>Advanced settings</h4></td></tr>
+                <tr><td>Previous track gpio pin:</td><td><input type="number" id="gpio-prev" name="gpio-prev" min="0" max="30"></td></tr>
+                <tr><td>Next track gpio pin:</td><td><input type="number" id="gpio-next" name="gpio-next" min="0" max="30"></td></tr>
+                <tr><td>Volume up gpio pin:</td><td><input type="number" id="gpio-volup" name="gpio-volup" min="0" max="30"></td></tr>
+                <tr><td>Volume down gpio pin:</td><td><input type="number" id="gpio-voldown" name="gpio-voldown" min="0" max="30"></td></tr>
+                <tr><td>RFID Reader SPI device:</td><td><input type="text" id="spi-dev" name="spi-dev"></td></tr>
+
+                <tr><td></td><td><input type="submit" value="Apply"/></td></tr>
             </table>
+
         </div>
 
         <div id="about-stage" class="stage">
