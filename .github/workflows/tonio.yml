@@ -10,21 +10,21 @@ env:
   buildroot-version: 2020.02.8
 
 jobs:
-  build-rpi3:
+  RPi3:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
         
     - uses: actions/checkout@v2
             
-    - name: Cache Buildroot ccache
+    - name: Setup Buildroot ccache
       uses: actions/cache@v2
       with:
         path: ~/.buildroot-ccache
         key: buildroot-ccache
     
-    - name: Cache Buildroot downloads
+    - name: Setup Buildroot downloads cache
       uses: actions/cache@v2
       with:
         path: ~/.buildroot-dl
@@ -37,7 +37,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install graphviz python3-matplotlib
         
-    - name: Build RPi 3
+    - name: Build Images
       run: |
         cd buildroot-${{ env.buildroot-version }}
         export BR2_DL_DIR=~/.buildroot-dl
@@ -49,7 +49,7 @@ jobs:
     - name: Upload Images
       uses: actions/upload-artifact@v2
       with:
-        name: Upload Build Output
+        name: Raspberry Pi 3 Images
         path: 'buildroot-${{ env.buildroot-version }}/output/images.tar.gz'
                 
     - name: Build Graphs
@@ -64,5 +64,5 @@ jobs:
     - name: Upload Graphs
       uses: actions/upload-artifact@v2
       with:
-        name: Upload Build Output
+        name: Raspberry Pi 3 Graphs
         path: 'buildroot-${{ env.buildroot-version }}/output/graphs.tar.gz'

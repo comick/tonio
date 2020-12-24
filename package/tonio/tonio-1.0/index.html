@@ -120,16 +120,16 @@
                 display: none;
             }
 
-            .track-up, .track-down, .track-del {
-                font-size: 150%;
-            }
-
             .track-del {
                 color: #ff5555;
             }
 
             .track-up, .track-down {
                 color: #bd93f9;
+            }
+
+            .button {
+                cursor: pointer;
             }
 
 
@@ -216,9 +216,12 @@
                             const noButtonTpl = document.getElementById('no-button');
                             const resourceNameTpl = document.getElementById('item-resource');
 
-                            function playlistTitle(title) {
+                            function playlistTitle(title, tracksTable) {
                                 let titleElem = plTitle.content.firstChild.cloneNode(true);
                                 titleElem.innerHTML = title;
+                                titleElem.onclick = () => {
+                                    tracksTable.style.display = tracksTable.style.display === 'none' ? 'table' : 'none';
+                                }
                                 return titleElem;
                             }
 
@@ -227,7 +230,7 @@
                                 return containerElem;
                             }
 
-                            function playlistRow(pos, resources, tracksTable, redraw) {
+                            function playlistRow(pos, resources, redraw) {
                                 let rowElem = itemContainer.content.firstChild.cloneNode(true);
 
                                 rowElem.appendChild(deleteButton(pos, resources, redraw));
@@ -246,7 +249,7 @@
                                 delButton.onclick = () => {
                                     resources.splice(pos, 1);
                                     redraw();
-                                }
+                                };
                                 return delButton;
                             }
 
@@ -260,7 +263,7 @@
                                         resources[pos] = resources[pos - 1];
                                         resources[pos - 1 ] = tmp;
                                         redraw();
-                                    }
+                                    };
                                     return upButton;
                                 }
                             }
@@ -275,19 +278,19 @@
                                         resources[pos] = resources[pos + 1];
                                         resources[pos + 1] = tmp;
                                         redraw();
-                                    }
+                                    };
                                     return downButton;
                                 }
                             }
 
                             function drawPlaylist(tagId, rootElem, resources, previousTitleElem, previousTracksElem) {
-                                let titleElem = playlistTitle(tagId);
+                                let tracksElem = playlistTable();
+                                let titleElem = playlistTitle(tagId, tracksElem);
                                 if (previousTitleElem)
                                     rootElem.replaceChild(titleElem, previousTitleElem);
                                 else
                                     rootElem.appendChild(titleElem);
 
-                                let tracksElem = playlistTable();
                                 if (previousTracksElem)
                                     rootElem.replaceChild(tracksElem, previousTracksElem);
                                 else
@@ -296,7 +299,7 @@
                                 let redraw = drawPlaylist.bind(null, tagId, rootElem, resources, titleElem, tracksElem);
 
                                 for (let i = 0; i < resources.length; i++) {
-                                    tracksElem.appendChild(playlistRow(i, resources, tracksElem, redraw));
+                                    tracksElem.appendChild(playlistRow(i, resources, redraw));
                                 }
                             }
 
@@ -314,7 +317,7 @@
                                     });
                                 },
                                 close: nop
-                            }
+                            };
                         })(),
 
                         log: (() => {
@@ -376,7 +379,7 @@
                                         iwlist.innerHTML = '';
                                         networks.forEach(essid => {
                                             let network = document.createElement('option');
-                                            if (essid == currentEssid) {
+                                            if (essid === currentEssid) {
                                                 network.innerHTML = `${essid} (current)`;
                                                 network.selected = 'selected';
                                             } else {
@@ -421,7 +424,7 @@
                         }
 
                         currentStageId = stageId;
-                        let currentRootElem = document.getElementById(currentStageId + '-stage')
+                        let currentRootElem = document.getElementById(currentStageId + '-stage');
                         stages[currentStageId].open(currentRootElem);
                         currentRootElem.style = 'display: block';
                         window.location.hash = '#' + currentStageId;
@@ -459,11 +462,11 @@
 
         <div id="library-stage" class="stage">
             <template id="playlist-title"><h4>Playlist title</h4></template>
-            <template id="playlist-container"><table></table></template>
+            <template id="playlist-container"><table style="display: none"></table></template>
             <template id="item-container"><tr></tr></template>
-            <template id="remove-button"><td class="track-del">&#10006;</td></template>
-            <template id="up-button"><td class="track-up">&#x2bc5;</td></template>
-            <template id="down-button"><td class="track-down">&#x2bc6;</td></template>
+            <template id="remove-button"><td class="button track-del">&#10006;</td></template>
+            <template id="up-button"><td class="button track-up">&#x2bc5;</td></template>
+            <template id="down-button"><td class="button track-down">&#x2bc6;</td></template>
             <template id="no-button"><td></td></template>
             <template id="item-resource"><td></td></template>
 
