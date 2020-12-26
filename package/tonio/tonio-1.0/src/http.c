@@ -396,14 +396,19 @@ static int _handle_playlist(void *cls, struct MHD_Connection *connection,
     struct MHD_Response *response;
     int ret;
     struct stat playlist_stat;
-
-
+    
     const char *playlist_id = url + strlen(LIBRARY_URL_PATH) + 1;
+    
+    unsigned long int playlist_tag_long = strtoul(playlist_id, NULL, 16);
+    uint8_t playlist_tag[4];
+    playlist_tag[0] = playlist_tag_long >>24 & 0xFF;
+    playlist_tag[1] = playlist_tag_long >> 16 & 0xFF;
+    playlist_tag[2] = playlist_tag_long >> 8 & 0xFF;
+    playlist_tag[3] = playlist_tag_long >> 0 & 0xFF;
+        
+    char *file_name = find_playlist_filename(self->library_root, playlist_tag);
 
-    char *file_name = malloc(self->library_root_len + 2 + strlen(playlist_id) * 2 + strlen(".m3u"));
-    sprintf(file_name, "%s/%s/%s.m3u", self->library_root, playlist_id, playlist_id);
-
-    syslog(LOG_DEBUG, "Playlist requested: %s @ %s", playlist_id, file_name);
+    syslog(LOG_DEBUG, "Playlist requested for %s: %s", playlist_id, file_name);
 
     int playlist_fd = open(file_name, O_RDONLY);
     I_CHECK(playlist_fd, return MHD_NO);

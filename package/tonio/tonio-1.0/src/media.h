@@ -39,5 +39,8 @@ void tn_media_volume_up(tn_media_t *);
 
 void tn_media_destroy(tn_media_t *);
 
+// Utils
+char *find_playlist_filename(char *, uint8_t *);
+
 #endif /* MEDIA_H */
 

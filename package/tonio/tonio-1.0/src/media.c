@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>
+#include <dirent.h>
 
 #include "uthash.h"
 
@@ -37,6 +38,9 @@
 #define MIXER_SELEM "PCM"
 // 0 to 1.0 limits maximum volume.
 #define VOL_MAX 0.7
+
+#define PLAYLIST_SUFFIX ".m3u"
+#define PLAYLIST_SUFFIX_LEN (strlen(PLAYLIST_SUFFIX))
 
 typedef struct {
     uint32_t card_id;
@@ -157,33 +161,21 @@ char *tn_media_track_name(tn_media_t *self) {
 bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
     bool played = false;
     libvlc_media_t *media = NULL;
-    char *playlist_path = NULL;
+    char *tag_playlist_path = NULL;
     libvlc_media_player_t *media_player = NULL;
-
 
     if (self->media_list_player != NULL) tn_media_stop(self);
 
     self->curr_card_id = card_id[0] << 24 | card_id[1] << 16 | card_id[2] << 8 | card_id[3];
 
-    char *path_fmt = "%s/%02X%02X%02X%02X/%02X%02X%02X%02X.m3u";
+    tag_playlist_path = find_playlist_filename(self->media_root, card_id);
 
-
-    size_t path_len = snprintf(NULL, 0, path_fmt, self->media_root,
-            card_id[0], card_id[1], card_id[2], card_id[3],
-            card_id[0], card_id[1], card_id[2], card_id[3]);
-    playlist_path = malloc(path_len + 1);
-
-    snprintf(playlist_path, path_len + 1, path_fmt, self->media_root,
-            card_id[0], card_id[1], card_id[2], card_id[3],
-            card_id[0], card_id[1], card_id[2], card_id[3]);
-
-    if (access(playlist_path, F_OK) < 0) {
-        syslog(LOG_WARNING, "Cannot access '%s', setting up directoy stucture for new tag.\n", playlist_path);
-        // TODO setup directory structure
+    if (tag_playlist_path == NULL) {
+        syslog(LOG_WARNING, "Cannot find playlist for %02X%02X%02X%02X.\n", card_id[0], card_id[1], card_id[2], card_id[3]);
         goto play_cleanup;
     }
 
-    media = libvlc_media_new_path(self->vlc, playlist_path);
+    media = libvlc_media_new_path(self->vlc, tag_playlist_path);
     P_CHECK(media, goto play_cleanup);
 
     libvlc_media_parse_with_options(media,
@@ -228,7 +220,7 @@ bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
 
         if (libvlc_media_player_is_seekable(media_player)) {
 
-            syslog(LOG_INFO, "Recovering %s item %d (%f)", playlist_path, remember_item->media_idx, remember_item->media_pos);
+            syslog(LOG_INFO, "Recovering %s item %d (%f)", tag_playlist_path, remember_item->media_idx, remember_item->media_pos);
 
             libvlc_media_player_set_position(media_player, remember_item->media_pos);
 
@@ -239,7 +231,7 @@ bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
         sem_destroy(&is_playing);
 
     } else {
-        syslog(LOG_INFO, "Start playing %s", playlist_path);
+        syslog(LOG_INFO, "Start playing %s", tag_playlist_path);
         libvlc_media_list_player_play(self->media_list_player);
     }
 
@@ -247,7 +239,7 @@ bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
 
 play_cleanup:
 
-    if (playlist_path != NULL) free(playlist_path);
+    if (tag_playlist_path != NULL) free(tag_playlist_path);
     if (media_player != NULL) libvlc_media_player_release(media_player);
     if (media != NULL) libvlc_media_release(media);
 
@@ -374,4 +366,44 @@ void tn_media_destroy(tn_media_t *self) {
     }
 
     free(self);
+}
+
+/**
+ * Finds the first playlist file and returns.
+ * Result must be freed by caller.
+ */
+char *find_playlist_filename(char *media_root, uint8_t *card_id) {
+
+    char *tag_library_path = NULL;
+    char *tag_playlist_path = NULL;
+    char *path_fmt = "%s/%02X%02X%02X%02X";
+    char *playlist_path_fmt = "%s/%s";
+
+
+    size_t path_len = snprintf(NULL, 0, path_fmt, media_root,
+            card_id[0], card_id[1], card_id[2], card_id[3]);
+    tag_library_path = malloc(path_len + 1);
+
+    snprintf(tag_library_path, path_len + 1, path_fmt, media_root,
+            card_id[0], card_id[1], card_id[2], card_id[3]);
+
+    // Search for first m3u file.
+    DIR *dir = opendir(tag_library_path);
+    P_CHECK(dir, goto find_cleanup);
+    struct dirent *ent = NULL;
+    for (ent; ent = readdir(dir); ent != NULL) {
+        size_t dir_len = strlen(ent->d_name);
+        char *dir_suffix = ent->d_name + dir_len - PLAYLIST_SUFFIX_LEN;
+        if (dir_len > PLAYLIST_SUFFIX_LEN && strcmp(dir_suffix, PLAYLIST_SUFFIX) == 0) {
+            size_t playlist_path_len = snprintf(NULL, 0, playlist_path_fmt, tag_library_path, ent->d_name);
+            tag_playlist_path = malloc(playlist_path_len + 1);
+            snprintf(tag_playlist_path, playlist_path_len + 1, playlist_path_fmt, tag_library_path, ent->d_name);
+            break;
+        }
+    }
+
+find_cleanup:
+    if (tag_library_path != NULL) free(tag_library_path);
+
+    return tag_playlist_path;
 }
