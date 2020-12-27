@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include <dirent.h>
+#include <errno.h>
 
 #include "uthash.h"
 
@@ -42,6 +43,8 @@
 #define PLAYLIST_SUFFIX ".m3u"
 #define PLAYLIST_SUFFIX_LEN (strlen(PLAYLIST_SUFFIX))
 
+#define POS_SAVE_FILE "/.tonio.dat"
+
 typedef struct {
     uint32_t card_id;
     int media_idx;
@@ -58,10 +61,12 @@ struct tn_media {
     tn_media_position_t *media_positions;
     snd_mixer_t *mixer;
     snd_mixer_elem_t* mixer_elem;
-    bool opt_keep_pos_file;
+    char *positions_filepath;
 };
 
-tn_media_t *tn_media_init(char *media_root, bool opt_keep_pos_file) {
+tn_media_position_t *_save_stream_positions(tn_media_t *);
+
+tn_media_t *tn_media_init(char *media_root) {
     // alsa mixer for volume
     snd_mixer_selem_id_t *selem_id = NULL;
 
@@ -77,7 +82,7 @@ tn_media_t *tn_media_init(char *media_root, bool opt_keep_pos_file) {
     self->media_positions = NULL;
     self->mixer = NULL;
     self->mixer_elem = NULL;
-    self->opt_keep_pos_file = opt_keep_pos_file;
+    self->positions_filepath = NULL;
 
     // libvlc for playback
     const char *vlc_args[] = {
@@ -102,34 +107,35 @@ tn_media_t *tn_media_init(char *media_root, bool opt_keep_pos_file) {
     // effect is alsa volume to max configured
     tn_media_volume_up(self);
 
+    // Loading stream positions from file.
+    struct passwd *home = getpwuid(getuid());
+    P_CHECK(home, goto init_error);
+    P_CHECK(home->pw_dir, goto init_error);
+    size_t buf_len = strlen(home->pw_dir) + strlen(POS_SAVE_FILE) + 1;
+    char *positions_filepath = malloc(buf_len);
+    strcpy(positions_filepath, home->pw_dir);
+    strcat(positions_filepath, POS_SAVE_FILE);
+    self->positions_filepath = positions_filepath;
 
-    // Loading playlist positions stored in file.
-    // Failing this will not fail media initialization.
-    /*if (self->opt_keep_pos_file) {
-        char *conf_dir = getenv("XDG_CONFIG_HOME");
+    /*FILE *positions_file = fopen(positions_filepath, "r");
+    if (positions_file != NULL) {
+        P_CHECK(positions_file, goto init_error);
 
-        if (conf_dir == NULL) {
-            conf_dir = getenv("HOME");
+        int i = 0;
+        while (!feof(positions_file)) {
+            tn_media_position_t *saved_pos = malloc(sizeof (tn_media_position_t));
+            fread(&(saved_pos->card_id), sizeof (uint32_t), 1, positions_file);
+            fread(&(saved_pos->media_idx), sizeof (int), 1, positions_file);
+            fread(&(saved_pos->media_pos), sizeof (float), 1, positions_file);
+            HASH_ADD_INT(self->media_positions, card_id, saved_pos);
+            i++;
         }
-        if (conf_dir == NULL) {
-            struct passwd *pwd = getpwuid(getuid());
-            if (pwd != NULL) conf_dir = pwd->pw_dir;
-        }
-        if (conf_dir != NULL) {
-            FILE *positions_file = fopen("tonio.bin", "rb");
-            P_CHECK
-
-            tn_media_position_t *stored_media_position = malloc(sizeof (tn_media_position_t));
-            P_CHECK(stored_media_position, goto init_error);
-
-            while (!feof(positions_file)) {
-                fread(stored_media_position, sizeof (tn_media_position_t), 1, positions_file);
-                HASH_ADD_INT(self->media_positions, card_id, stored_media_position);
-            }
-        } else {
-            syslog(LOG_ERR, "Cannot find config directory.");
-        }
-
+        fclose(positions_file);
+        syslog(LOG_INFO, "Loaded %d stream positions from %s", i, self->positions_filepath);
+    } else if (errno == ENOENT) {
+        syslog(LOG_WARNING, "Saved positions file not found.");
+    } else {
+        P_CHECK(positions_file, syslog(LOG_ERR, "Stream positions could not be loaded from file."));
     }*/
 
     syslog(LOG_INFO, "Media sub-system initialized");
@@ -281,8 +287,7 @@ void tn_media_next(tn_media_t *self) {
     if (self->media_list_player == NULL) return;
 
     I_CHECK(libvlc_media_list_player_next(self->media_list_player), NULL);
-
-
+    _save_stream_positions(self);
 }
 
 void tn_media_previous(tn_media_t *self) {
@@ -296,6 +301,7 @@ void tn_media_previous(tn_media_t *self) {
     // start current track if playing fro more than 2 secs
     if (time > 2000) libvlc_media_player_set_time(media_player, 0);
     else I_CHECK(libvlc_media_list_player_previous(self->media_list_player), NULL);
+    _save_stream_positions(self);
 
     libvlc_media_player_release(media_player);
 }
@@ -313,47 +319,74 @@ void tn_media_volume_up(tn_media_t *self) {
 }
 
 void tn_media_stop(tn_media_t *self) {
+    if (self->media_list_player == NULL) return;
+    
+    tn_media_position_t *curr_pos = _save_stream_positions(self);
+    
+    if (self->media_list != NULL) libvlc_media_list_release(self->media_list);
+    self->media_list == NULL;
+    
+    libvlc_media_list_player_stop(self->media_list_player);
+    libvlc_media_list_player_release(self->media_list_player);
+    self->media_list_player = NULL;
+    
+    self->curr_card_id = 0;
+    
+    if (curr_pos == NULL) syslog(LOG_ERR, "CURRPOS NULLA_!_!_!_");
+    else syslog(LOG_INFO, "Stop playing item %d at position %f", curr_pos->media_idx, curr_pos->media_pos);
+}
+
+tn_media_position_t *_save_stream_positions(tn_media_t *self) {
 
     libvlc_media_player_t *curr_media_player = NULL;
     libvlc_media_t *curr_media = NULL;
     int curr_i;
     float curr_pos;
-    tn_media_position_t *curr_media_position = NULL;
 
-    if (self->media_list_player == NULL) return;
+    tn_media_position_t *media_pos = NULL;
 
-    // Saving current state for playing when left.
+    // Save stream position in memory.
     curr_media_player = libvlc_media_list_player_get_media_player(self->media_list_player);
-    P_CHECK(curr_media_player, goto stop_clean);
+    P_CHECK(curr_media_player, goto save_pos_clean);
 
     curr_media = libvlc_media_player_get_media(curr_media_player);
-    P_CHECK(curr_media, goto stop_clean);
+    P_CHECK(curr_media, goto save_pos_clean);
 
     curr_i = libvlc_media_list_index_of_item(self->media_list, curr_media);
-    I_CHECK(curr_i, goto stop_clean);
+    I_CHECK(curr_i, goto save_pos_clean);
 
     curr_pos = libvlc_media_player_get_position(curr_media_player);
 
-    curr_media_position = malloc(sizeof (tn_media_position_t));
-    P_CHECK(curr_media_position, goto stop_clean);
+    HASH_FIND_INT(self->media_positions, &(self->curr_card_id), media_pos);
+    if (media_pos == NULL) {
+        media_pos = malloc(sizeof (tn_media_position_t));
+        P_CHECK(media_pos, goto save_pos_clean);
 
-    curr_media_position->card_id = self->curr_card_id;
-    curr_media_position->media_idx = curr_i;
-    curr_media_position->media_pos = curr_pos;
-    HASH_ADD_INT(self->media_positions, card_id, curr_media_position);
+        media_pos->card_id = self->curr_card_id;
+        HASH_ADD_INT(self->media_positions, card_id, media_pos);
+    }
+    media_pos->media_idx = curr_i;
+    media_pos->media_pos = curr_pos;
 
-    self->curr_card_id = 0;
-
-    syslog(LOG_INFO, "Stop playing item %d at position %f", curr_i, curr_pos);
-
-stop_clean:
+    // Writing out all stream positions to file.
+    /*
+    FILE *positions_file = fopen(self->positions_filepath, "w");
+    P_CHECK(positions_file, syslog(LOG_ERR, "Cannot write positions file: %s", self->positions_filepath); goto save_pos_clean);
+    int i = 0;
+    for (tn_media_position_t *nxt = self->media_positions; nxt != NULL; nxt = nxt->hh.next, i++) {
+        fwrite(&(nxt->card_id), sizeof (uint32_t), 1, positions_file);
+        fwrite(&(nxt->media_idx), sizeof (int), 1, positions_file);
+        fwrite(&(nxt->media_pos), sizeof (float), 1, positions_file);
+    }
+    fclose(positions_file);
+    fflush(positions_file);
+    syslog(LOG_INFO, "Saved %d stream positions at %s", i, self->positions_filepath);
+*/
+save_pos_clean:
     if (curr_media_player != NULL) libvlc_media_player_release(curr_media_player);
     if (curr_media != NULL) libvlc_media_release(curr_media);
-    if (self->media_list != NULL) libvlc_media_list_release(self->media_list);
-    libvlc_media_list_player_stop(self->media_list_player);
-    libvlc_media_list_player_release(self->media_list_player);
-    self->media_list_player = NULL;
 
+    return media_pos;
 }
 
 void tn_media_destroy(tn_media_t *self) {

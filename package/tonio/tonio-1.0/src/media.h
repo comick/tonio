@@ -23,7 +23,7 @@
 
 typedef struct tn_media tn_media_t;
 
-tn_media_t *tn_media_init(char *, bool);
+tn_media_t *tn_media_init(char *);
 
 bool tn_media_play(tn_media_t *, uint8_t *);
 bool tn_media_is_playing(tn_media_t *);
