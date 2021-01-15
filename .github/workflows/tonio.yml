@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 env:
-  buildroot-version: 2020.02.8
+  buildroot-version: 2020.02.9
 
 jobs:
   RPi3:
@@ -43,14 +43,12 @@ jobs:
         export BR2_DL_DIR=~/.buildroot-dl
         make BR2_EXTERNAL=../ tonio_pi3_defconfig
         make
-        cd output
-        tar -czvf images.tar.gz images
     
     - name: Upload Images
       uses: actions/upload-artifact@v2
       with:
         name: Raspberry Pi 3 Images
-        path: 'buildroot-${{ env.buildroot-version }}/output/images.tar.gz'
+        path: 'buildroot-${{ env.buildroot-version }}/output/images'
                 
     - name: Build Graphs
       run: |
@@ -58,11 +56,9 @@ jobs:
         make graph-size
         make graph-depends
         make graph-build
-        cd output
-        tar -czvf graphs.tar.gz graphs
 
     - name: Upload Graphs
       uses: actions/upload-artifact@v2
       with:
         name: Raspberry Pi 3 Graphs
-        path: 'buildroot-${{ env.buildroot-version }}/output/graphs.tar.gz'
+        path: 'buildroot-${{ env.buildroot-version }}/output/graphs'
