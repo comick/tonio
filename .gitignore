@@ -1,5 +1,6 @@
 nbproject
 library/*
+!library/.keep
 **/wpa_supplicant.conf
 **/interfaces
 **/authorized_keys
