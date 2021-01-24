@@ -5,7 +5,7 @@
 ################################################################################
 
 TONIO_VERSION = 1.0
-TONIO_SITE = $(BR2_EXTERNAL_TONIO_PI3_PATH)/package/tonio/tonio-$(TONIO_VERSION)
+TONIO_SITE = $(BR2_EXTERNAL_TONIO_PATH)/package/tonio/tonio-$(TONIO_VERSION)
 TONIO_SITE_METHOD = local
 TONIO_DEPENDENCIES = host-pkgconf vlc alsa-lib wiringpi libmicrohttpd
 
@@ -21,7 +21,7 @@ define TONIO_INSTALL_TARGET_CMDS
 endef
 
 define TONIO_INSTALL_INIT_SYSV
-    $(INSTALL) -D -m 0755 $(BR2_EXTERNAL_TONIO_PI3_PATH)/package/tonio/S15tonio \
+    $(INSTALL) -D -m 0755 $(BR2_EXTERNAL_TONIO_PATH)/package/tonio/S15tonio \
         $(TARGET_DIR)/etc/init.d/S15tonio
 endef
 

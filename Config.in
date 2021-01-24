@@ -1,1 +1,1 @@
-source "$BR2_EXTERNAL_TONIO_PI3_PATH/package/tonio/Config.in"
+source "$BR2_EXTERNAL_TONIO_PATH/package/tonio/Config.in"

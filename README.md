@@ -34,7 +34,9 @@ This is guiding through getting started from sources. If you want to get started
 Supported hardware
 ------------------
 
-- Raspberry PI 3 is the only board tested so far
+- Boards
+ - Raspberry Pi 3
+ - Raspberry Pi 0 Wireless (fat kernel, untested audio)
 - RC522 RFID
 - Push buttons for volume and track control (optional)
 
@@ -68,9 +70,11 @@ Clone this project in your favorite folder, say `$HOME/tonio`.
 
 ```
 $ cd $HOME/buildroot-2020.02.9
-$ make BR2_EXTERNAL=$HOME/tonio tonio_pi3_defconfig
+$ make BR2_EXTERNAL=$HOME/tonio tonio_raspberrypi3_defconfig
 $ make
 ```
+
+> HINT: `raspberry3` is used in this example, but multiple boards are supported, see the `board` folder for the list of those.
 
 wait. Buildroot is building the root image from the ground up, it will take some time. Kind half an hour or more.
 
@@ -136,6 +140,7 @@ Support and feature requests
 ============================
 
 Nope. But you can create tickets for the wider audience or fix issues yourself and contribute.
+Sure enough, you can also say thanks and show your Tonio at work!
 
 
 Contributing
@@ -145,9 +150,9 @@ You're wellcome. Merge requests are the way to go.
 Just in case you're out of ideas:
 
 - [ ] First time setup page
-- [ ] Configure network from web UI
-- [ ] Web interface for ordinary people to setup playlists
-- [ ] Move to `pigpio`, maybe abstract gpio layer to support more boards
+- [ ] Finish web UI network config
+- [ ] Finalize web interface for ordinary people to setup playlists
+- [ ] Move to `pigpio`, maybe abstract gpio layer to support more boards, maybe devfs gpio
 - [ ] Supporting/testing more boards (eg: pi zero, orange pi, ...)
 - [ ] Strip kernel even more from unused modules and move to static device table to faster build and boot
 
