@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <wiringPi.h>
 /* HAL prototypes*/
-void MFRC522_HAL_init(void);
+void MFRC522_HAL_init(char *spi_dev);
 void MFRC522_HAL_write(unsigned char addr, unsigned char val);
 unsigned char MFRC522_HAL_read(unsigned char addr);
 void MFRC522_HAL_Delay(unsigned int ms);
@@ -28,10 +28,10 @@ void MFRC522_HAL_Delay(unsigned int ms);
 /* HAL prototypes end */
 static int Checking_Card = 0;
 
-int MFRC522_Setup(char Type){
+int MFRC522_Setup(int pin, char Type){
 	wiringPiSetup();
-	pinMode(6,OUTPUT);
-	digitalWrite(6,HIGH);
+	pinMode(pin,OUTPUT);
+	digitalWrite(pin,HIGH);
 	MFRC522_Reset();
 	MFRC522_HAL_Delay(200);
 
@@ -67,11 +67,11 @@ int MFRC522_Setup(char Type){
 	MFRC522_AntennaOn();		//Open the antenna
 	return 0;
 }
-int MFRC522_Init(char Type) {
+int MFRC522_Init(char *spi_dev, int pin, char Type) {
 
-	MFRC522_HAL_init();
+	MFRC522_HAL_init(spi_dev);
 
-	return MFRC522_Setup(Type);
+	return MFRC522_Setup(pin, Type);
 }
 
 MFRC522_Status_t MFRC522_Check(uint8_t* id) {

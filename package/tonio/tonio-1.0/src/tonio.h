@@ -23,11 +23,14 @@
 #include <errno.h>
 #include <syslog.h>
 
+// TODO take those as cli args or env or something.
 #define PIN_PREV 1
 #define PIN_NEXT 4
-
 #define PIN_VOL_DOWN 29
 #define PIN_VOL_UP 5
+
+#define PIN_RFID 6
+#define SPI_DEV "/dev/spidev0.0"
 
 #define I_CHECK(V, A) do { \
     int ret = (V); \

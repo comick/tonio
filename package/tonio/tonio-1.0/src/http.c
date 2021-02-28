@@ -125,9 +125,9 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     I_CHECK(iw_get_basic_config(iw_sock, "wlan0", &wconfig), return MHD_NO);
     iw_sockets_close(iw_sock);
 
-    page_len = snprintf(NULL, 0, SETTINGS_JSON_FMT, wconfig.essid, PIN_PREV, PIN_NEXT, PIN_VOL_UP, PIN_VOL_DOWN, "/dev/spidev0.0");
+    page_len = snprintf(NULL, 0, SETTINGS_JSON_FMT, wconfig.essid, PIN_PREV, PIN_NEXT, PIN_VOL_UP, PIN_VOL_DOWN, PIN_RFID, SPI_DEV);
     page = malloc(page_len + 1);
-    snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid, PIN_PREV, PIN_NEXT, PIN_VOL_UP, PIN_VOL_DOWN, "/dev/spidev0.0");
+    snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid, PIN_PREV, PIN_NEXT, PIN_VOL_UP, PIN_VOL_DOWN, PIN_RFID, SPI_DEV);
 
     response = MHD_create_response_from_buffer(page_len,
             (void*) page, MHD_RESPMEM_MUST_FREE);

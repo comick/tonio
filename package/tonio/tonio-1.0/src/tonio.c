@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
 
     tn_media_t *media = tn_media_init(library_root);
 
-    ret = MFRC522_Init('B');
+    ret = MFRC522_Init(SPI_DEV, PIN_RFID, 'B');
     if (ret < 0) {
         syslog(LOG_CRIT, "RFID Failed to initialize");
         exit(EXIT_FAILURE);

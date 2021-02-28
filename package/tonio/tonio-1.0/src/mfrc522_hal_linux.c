@@ -17,7 +17,6 @@
 
 #define RFID_DEBUG(a)	puts(a)
 #define RFID_DEBUGF		printf
-#define SPI_DEV "/dev/spidev0.0"
 #define RFID_DelayMs(s)	usleep(s*1000)
 static int __spidev = 0;
 static struct spi_ioc_transfer spixfr;
@@ -33,11 +32,11 @@ static void pabort(const char *s)
 void MFRC522_HAL_Delay(unsigned int ms){
 	usleep(ms * 1000);
 }
-void MFRC522_HAL_init(void) {
+void MFRC522_HAL_init(char *spi_dev) {
 	int ret;
 
-	RFID_DEBUG("Try to open device "SPI_DEV);
-	__spidev = open(SPI_DEV, O_RDWR);
+	RFID_DEBUGF("Try to open device: %s", spi_dev);
+	__spidev = open(spi_dev, O_RDWR);
 	if (__spidev < 0) {
 		pabort("Device Cannot open");
 	} else {
