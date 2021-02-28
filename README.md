@@ -63,13 +63,13 @@ Tonio daemon assumes SPI interface to RC522, connect accordingly.
 Building the root file system
 -----------------------------
 
-[Download Buildroot](https://buildroot.org/download.html) and extract into some folder, say `$HOME/buildroot-2020.02.9`.
-Version 2020.02.9 is currently used. The project tries to keep current with latest LTS version of Buildroot.
+[Download Buildroot](https://buildroot.org/download.html) and extract into some folder, say `$HOME/buildroot-2020.02.11`.
+Version 2020.02.11 is currently used. The project tries to keep current with latest LTS version of Buildroot.
 
 Clone this project in your favorite folder, say `$HOME/tonio`.
 
 ```
-$ cd $HOME/buildroot-2020.02.9
+$ cd $HOME/buildroot-2020.02.11
 $ make BR2_EXTERNAL=$HOME/tonio tonio_raspberrypi3_defconfig
 $ make
 ```
