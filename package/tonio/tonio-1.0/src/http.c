@@ -41,7 +41,7 @@
 #define STATUS_TAG_PRESENT_JSON_FMT "{\"present\":true,\"id\":\"%02X%02X%02X%02X\",\"internet\":false}"
 #define STATUS_TAG_MISSING_JSON "{\"present\":false,\"internet\":false}"
 
-#define SETTINGS_JSON_FMT "{\"essid\":\"%s\",\"pin_prev\":1,\"pin_next\":4,\"pin_volup\":5,\"pin_voldown\":29,\"pin_rfid\":6,\"spi_rfid\":\"/dev/spidev0.0\"}"
+#define SETTINGS_JSON_FMT "{\"essid\":\"%s\",\"pin_prev\":%d,\"pin_next\":%d,\"pin_volup\":%d,\"pin_voldown\":%d,\"pin_rfid\":%d,\"spi_rfid\":\"%s\"}"
 
 #define LIBRARY_URL_PATH "/library"
 
@@ -125,9 +125,9 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     I_CHECK(iw_get_basic_config(iw_sock, "wlan0", &wconfig), return MHD_NO);
     iw_sockets_close(iw_sock);
 
-    page_len = snprintf(NULL, 0, SETTINGS_JSON_FMT, wconfig.essid);
+    page_len = snprintf(NULL, 0, SETTINGS_JSON_FMT, wconfig.essid, PIN_PREV, PIN_NEXT, PIN_VOL_UP, PIN_VOL_DOWN, "/dev/spidev0.0");
     page = malloc(page_len + 1);
-    snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid);
+    snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid, PIN_PREV, PIN_NEXT, PIN_VOL_UP, PIN_VOL_DOWN, "/dev/spidev0.0");
 
     response = MHD_create_response_from_buffer(page_len,
             (void*) page, MHD_RESPMEM_MUST_FREE);

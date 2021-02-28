@@ -3,7 +3,7 @@ Tonio is the free juke-box software for children and beyond
 
 Inspired by commercial success of _tonies®_, Tonio is the limitless free software alternative for makers with a legacy.
 
-The project consists of Tonio daemon software, implementing Jukebox functionality, and a carefully crafted Buildroot external configuration for selected boards.
+The project consists of Tonio daemon software, implementing Jukebox functionality, and a set of carefully crafted Buildroot external configurations for selected boards.
 
 
 Key features
@@ -11,8 +11,7 @@ Key features
 
 Tonio turns RFID tags into keys for playing audio playlists.
 
-It supports anything that `libvlc` can play, streaming included.
-
+- Tonio supports anything that `libvlc` can play, streaming included.
 - Tonio is free software released under the terms of GNU General Public License 3
 - Tonio is _creative_ by default
 - Tonio is DRM-free
@@ -25,7 +24,6 @@ Super simple human interface design:
 - buttons for next/previous track
 - buttons for volume up/down
 
-
 Getting started from source
 ===========================
 
@@ -35,8 +33,8 @@ Supported hardware
 ------------------
 
 - Boards
- - Raspberry Pi 3
- - Raspberry Pi 0 Wireless (fat kernel, untested audio)
+  - Raspberry Pi 3
+  - Raspberry Pi 0 Wireless (fat kernel, untested audio)
 - RC522 RFID
 - Push buttons for volume and track control (optional)
 
@@ -57,7 +55,7 @@ Here are the default settings, using `wiringPi` pin numbering:
 
 Tonio daemon assumes SPI interface to RC522, connect accordingly.
 
-[Reference assembly documentation is  under progress in the wiki](https://github.com/comick/tonio/wiki/Reference-Assembly).
+[Reference assembly documentation is under progress in the wiki](https://github.com/comick/tonio/wiki/Reference-Assembly).
 
 
 Building the root file system
