@@ -70,9 +70,7 @@ ROOTPATH_TMP="$(mktemp -d)"
 
 rm -rf "${GENIMAGE_TMP}"
 
-cp -r "${BR2_EXTERNAL_TONIO_PATH}/library" "${ROOTPATH_TMP}/library"
-
-dd bs=1024 count=32762 if=/dev/zero of="${ROOTPATH_TMP}/library/.keep"
+ln -sf "${BR2_EXTERNAL_TONIO_PATH}/library" "${ROOTPATH_TMP}/library"
 
 genimage \
 	--rootpath "${ROOTPATH_TMP}"   \
