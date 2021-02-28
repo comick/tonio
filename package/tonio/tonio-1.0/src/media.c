@@ -26,6 +26,7 @@
 #include <pwd.h>
 #include <dirent.h>
 #include <errno.h>
+#include <stdio.h>
 
 #include "uthash.h"
 
@@ -117,17 +118,21 @@ tn_media_t *tn_media_init(char *media_root) {
     strcat(positions_filepath, POS_SAVE_FILE);
     self->positions_filepath = positions_filepath;
 
-    /*FILE *positions_file = fopen(positions_filepath, "r");
+    FILE *positions_file = fopen(positions_filepath, "r");
     if (positions_file != NULL) {
-        P_CHECK(positions_file, goto init_error);
-
         int i = 0;
-        while (!feof(positions_file)) {
+        
+        I_CHECK(fseek(positions_file, 0L, SEEK_END), goto init_error);
+        long int size = ftell(positions_file);
+        rewind(positions_file);
+        
+        while (ftell(positions_file) < size) {
             tn_media_position_t *saved_pos = malloc(sizeof (tn_media_position_t));
             fread(&(saved_pos->card_id), sizeof (uint32_t), 1, positions_file);
             fread(&(saved_pos->media_idx), sizeof (int), 1, positions_file);
             fread(&(saved_pos->media_pos), sizeof (float), 1, positions_file);
             HASH_ADD_INT(self->media_positions, card_id, saved_pos);
+            syslog(LOG_INFO, "Loaded playlist position for : %u @ %d : %f", saved_pos->card_id, saved_pos->media_idx, saved_pos->media_pos);
             i++;
         }
         fclose(positions_file);
@@ -136,7 +141,7 @@ tn_media_t *tn_media_init(char *media_root) {
         syslog(LOG_WARNING, "Saved positions file not found.");
     } else {
         P_CHECK(positions_file, syslog(LOG_ERR, "Stream positions could not be loaded from file."));
-    }*/
+    }
 
     syslog(LOG_INFO, "Media sub-system initialized");
     return self;
@@ -369,19 +374,21 @@ tn_media_position_t *_save_stream_positions(tn_media_t *self) {
     media_pos->media_pos = curr_pos;
 
     // Writing out all stream positions to file.
-    /*
     FILE *positions_file = fopen(self->positions_filepath, "w");
     P_CHECK(positions_file, syslog(LOG_ERR, "Cannot write positions file: %s", self->positions_filepath); goto save_pos_clean);
-    int i = 0;
-    for (tn_media_position_t *nxt = self->media_positions; nxt != NULL; nxt = nxt->hh.next, i++) {
+    tn_media_position_t * nxt;
+    int i;
+    for (nxt = self->media_positions, i = 0; nxt != NULL; nxt = nxt->hh.next, i++) {
         fwrite(&(nxt->card_id), sizeof (uint32_t), 1, positions_file);
         fwrite(&(nxt->media_idx), sizeof (int), 1, positions_file);
         fwrite(&(nxt->media_pos), sizeof (float), 1, positions_file);
+            
+        syslog(LOG_INFO, "Saved playlist position for: %u @ %d : %f", nxt->card_id, nxt->media_idx, nxt->media_pos);
     }
     fclose(positions_file);
     fflush(positions_file);
     syslog(LOG_INFO, "Saved %d stream positions at %s", i, self->positions_filepath);
-*/
+
 save_pos_clean:
     if (curr_media_player != NULL) libvlc_media_player_release(curr_media_player);
     if (curr_media != NULL) libvlc_media_release(curr_media);
