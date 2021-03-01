@@ -72,6 +72,14 @@ rm -rf "${GENIMAGE_TMP}"
 
 ln -sf "${BR2_EXTERNAL_TONIO_PATH}/library" "${ROOTPATH_TMP}/library"
 
+# Empty library gives place to zero-size vfat partition.
+# Forcing minimum size in such case.
+LIBRARY_SIZE=`du "${ROOTPATH_TMP}/library" -cbL | tail -n 1 | cut -f 1`
+MIN_FAT32_SIZE=34091520
+if (( $LIBRARY_SIZE < $MIN_FAT32_SIZE )); then
+    export LIBRARY_VFAT_SIZE="$MIN_FAT32_SIZE"
+fi
+
 genimage \
 	--rootpath "${ROOTPATH_TMP}"   \
 	--tmppath "${GENIMAGE_TMP}"    \
