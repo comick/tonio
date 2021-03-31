@@ -27,6 +27,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
+#include <sys/time.h>
 
 #include "uthash.h"
 
@@ -38,7 +39,7 @@
 #define AUDIO_OUTPUT "alsa"
 #define MIXER_CARD "default"
 #define MIXER_SELEM "PCM"
-// 0 to 1.0 limits maximum volume.
+// 0 to 1.0 limits maximum volume. TODO make it configurable
 #define VOL_MAX 0.7
 
 #define PLAYLIST_SUFFIX ".m3u"
@@ -50,6 +51,7 @@ typedef struct {
     uint32_t card_id;
     int media_idx;
     float media_pos;
+    struct timeval time_saved;
     UT_hash_handle hh;
 } tn_media_position_t;
 
@@ -65,7 +67,7 @@ struct tn_media {
     char *positions_filepath;
 };
 
-tn_media_position_t *_save_stream_positions(tn_media_t *);
+static tn_media_position_t *_save_stream_positions(tn_media_t *, bool);
 
 tn_media_t *tn_media_init(char *media_root) {
     // alsa mixer for volume
@@ -121,11 +123,11 @@ tn_media_t *tn_media_init(char *media_root) {
     FILE *positions_file = fopen(positions_filepath, "r");
     if (positions_file != NULL) {
         int i = 0;
-        
+
         I_CHECK(fseek(positions_file, 0L, SEEK_END), goto init_error);
         long int size = ftell(positions_file);
         rewind(positions_file);
-        
+
         while (ftell(positions_file) < size) {
             tn_media_position_t *saved_pos = malloc(sizeof (tn_media_position_t));
             fread(&(saved_pos->card_id), sizeof (uint32_t), 1, positions_file);
@@ -169,6 +171,43 @@ char *tn_media_track_name(tn_media_t *self) {
     return name;
 }
 
+static int _apply_saved_position(tn_media_t *self, libvlc_media_player_t * media_player, char *tag_playlist_path, tn_media_position_t *saved_position) {
+    libvlc_event_manager_t *evt_manager = libvlc_media_player_event_manager(media_player);
+    P_CHECK(evt_manager, return -1);
+
+    sem_t is_playing;
+    I_CHECK(sem_init(&is_playing, 0, 0), return -1);
+
+    I_CHECK(libvlc_event_attach(evt_manager, libvlc_MediaPlayerPlaying, _post_is_playing, &is_playing), return -1);
+
+    I_CHECK(libvlc_media_list_player_play_item_at_index(self->media_list_player, saved_position->media_idx), return -1);
+
+    // Keeps media calls synchronous from main loop perspective.
+    sem_wait(&is_playing);
+
+    libvlc_event_detach(evt_manager, libvlc_MediaPlayerPlaying, _post_is_playing, &is_playing);
+
+    if (libvlc_media_player_is_seekable(media_player)) {
+
+        syslog(LOG_INFO, "Recovering %s item %d (%f)", tag_playlist_path, saved_position->media_idx, saved_position->media_pos);
+
+        libvlc_media_player_set_position(media_player, saved_position->media_pos);
+
+    } else {
+        syslog(LOG_WARNING, "Media is not seekable, starting from the beginning");
+    }
+
+    sem_destroy(&is_playing);
+
+    return 0;
+}
+
+static void _save_stream_positions_onchange(const struct libvlc_event_t *event, void *data) {
+    tn_media_t *self = (tn_media_t *) data;
+
+    _save_stream_positions(self, false);
+}
+
 bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
     bool played = false;
     libvlc_media_t *media = NULL;
@@ -210,41 +249,20 @@ bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
 
     libvlc_media_list_player_set_playback_mode(self->media_list_player, libvlc_playback_mode_loop);
 
-    tn_media_position_t *remember_item = NULL;
-    HASH_FIND_INT(self->media_positions, &(self->curr_card_id), remember_item);
+    tn_media_position_t *saved_position = NULL;
+    HASH_FIND_INT(self->media_positions, &(self->curr_card_id), saved_position);
 
-    if (remember_item != NULL) {
-
-        libvlc_event_manager_t *evt_manager = libvlc_media_player_event_manager(media_player);
-        P_CHECK(evt_manager, goto play_cleanup);
-
-        sem_t is_playing;
-        I_CHECK(sem_init(&is_playing, 0, 0), goto play_cleanup);
-
-        I_CHECK(libvlc_event_attach(evt_manager, libvlc_MediaPlayerPlaying, _post_is_playing, &is_playing), goto play_cleanup);
-
-        I_CHECK(libvlc_media_list_player_play_item_at_index(self->media_list_player, remember_item->media_idx), goto play_cleanup);
-
-        sem_wait(&is_playing);
-
-        libvlc_event_detach(evt_manager, libvlc_MediaPlayerPlaying, _post_is_playing, &is_playing);
-
-        if (libvlc_media_player_is_seekable(media_player)) {
-
-            syslog(LOG_INFO, "Recovering %s item %d (%f)", tag_playlist_path, remember_item->media_idx, remember_item->media_pos);
-
-            libvlc_media_player_set_position(media_player, remember_item->media_pos);
-
-        } else {
-            syslog(LOG_WARNING, "Media is not seekable, starting from the beginning");
-        }
-
-        sem_destroy(&is_playing);
-
+    // TODO usare libvlc_MediaPlayerPositionChanged per aggiornare il valore periodicamente su file
+    // TODO discard positions older than..
+    if (saved_position != NULL) {
+        I_CHECK(_apply_saved_position(self, media_player, tag_playlist_path, saved_position), goto play_cleanup);
     } else {
         syslog(LOG_INFO, "Start playing %s", tag_playlist_path);
         libvlc_media_list_player_play(self->media_list_player);
     }
+
+    libvlc_event_manager_t *evt_manager = libvlc_media_player_event_manager(media_player);
+    I_CHECK(libvlc_event_attach(evt_manager, libvlc_MediaPlayerPositionChanged, _save_stream_positions_onchange, self), goto play_cleanup);
 
     played = true;
 
@@ -292,7 +310,7 @@ void tn_media_next(tn_media_t *self) {
     if (self->media_list_player == NULL) return;
 
     I_CHECK(libvlc_media_list_player_next(self->media_list_player), NULL);
-    _save_stream_positions(self);
+    _save_stream_positions(self, true);
 }
 
 void tn_media_previous(tn_media_t *self) {
@@ -306,7 +324,7 @@ void tn_media_previous(tn_media_t *self) {
     // start current track if playing fro more than 2 secs
     if (time > 2000) libvlc_media_player_set_time(media_player, 0);
     else I_CHECK(libvlc_media_list_player_previous(self->media_list_player), NULL);
-    _save_stream_positions(self);
+    _save_stream_positions(self, true);
 
     libvlc_media_player_release(media_player);
 }
@@ -325,23 +343,22 @@ void tn_media_volume_up(tn_media_t *self) {
 
 void tn_media_stop(tn_media_t *self) {
     if (self->media_list_player == NULL) return;
-    
-    tn_media_position_t *curr_pos = _save_stream_positions(self);
-    
+
+    tn_media_position_t *curr_pos = _save_stream_positions(self, true);
+
     if (self->media_list != NULL) libvlc_media_list_release(self->media_list);
     self->media_list == NULL;
-    
+
     libvlc_media_list_player_stop(self->media_list_player);
     libvlc_media_list_player_release(self->media_list_player);
     self->media_list_player = NULL;
-    
+
     self->curr_card_id = 0;
-    
-    if (curr_pos == NULL) syslog(LOG_ERR, "CURRPOS NULLA_!_!_!_");
-    else syslog(LOG_INFO, "Stop playing item %d at position %f", curr_pos->media_idx, curr_pos->media_pos);
+
+    syslog(LOG_INFO, "Stop playing item %d at position %f", curr_pos->media_idx, curr_pos->media_pos);
 }
 
-tn_media_position_t *_save_stream_positions(tn_media_t *self) {
+tn_media_position_t *_save_stream_positions(tn_media_t *self, bool on_position_changed) {
 
     libvlc_media_player_t *curr_media_player = NULL;
     libvlc_media_t *curr_media = NULL;
@@ -354,6 +371,11 @@ tn_media_position_t *_save_stream_positions(tn_media_t *self) {
     curr_media_player = libvlc_media_list_player_get_media_player(self->media_list_player);
     P_CHECK(curr_media_player, goto save_pos_clean);
 
+    if (!on_position_changed) {
+        libvlc_event_manager_t *evt_manager = libvlc_media_player_event_manager(curr_media_player);
+        libvlc_event_detach(evt_manager, libvlc_MediaPlayerPositionChanged, _save_stream_positions_onchange, self);
+    }
+
     curr_media = libvlc_media_player_get_media(curr_media_player);
     P_CHECK(curr_media, goto save_pos_clean);
 
@@ -363,6 +385,17 @@ tn_media_position_t *_save_stream_positions(tn_media_t *self) {
     curr_pos = libvlc_media_player_get_position(curr_media_player);
 
     HASH_FIND_INT(self->media_positions, &(self->curr_card_id), media_pos);
+
+    // Do not write anything when called on event and last save occurred less than a second ago.
+    if (on_position_changed) {
+        struct timeval now;
+        I_CHECK(gettimeofday(&now, NULL), goto save_pos_clean);
+
+        if (media_pos->time_saved.tv_sec >= now.tv_sec) {
+            goto save_pos_clean;
+        }
+    }
+
     if (media_pos == NULL) {
         media_pos = malloc(sizeof (tn_media_position_t));
         P_CHECK(media_pos, goto save_pos_clean);
@@ -374,6 +407,12 @@ tn_media_position_t *_save_stream_positions(tn_media_t *self) {
     media_pos->media_pos = curr_pos;
 
     // Writing out all stream positions to file.
+    // TODO for extra reliabilityç
+    // 1. write to backup file
+    // 1.1 rename on done
+    // 2. copy to main file
+    // 3. remove backup file
+    // On read, if backup file is there (corruption occurred), use it and do step 2 and 3.
     FILE *positions_file = fopen(self->positions_filepath, "w");
     P_CHECK(positions_file, syslog(LOG_ERR, "Cannot write positions file: %s", self->positions_filepath); goto save_pos_clean);
     tn_media_position_t * nxt;
@@ -382,7 +421,7 @@ tn_media_position_t *_save_stream_positions(tn_media_t *self) {
         fwrite(&(nxt->card_id), sizeof (uint32_t), 1, positions_file);
         fwrite(&(nxt->media_idx), sizeof (int), 1, positions_file);
         fwrite(&(nxt->media_pos), sizeof (float), 1, positions_file);
-            
+
         syslog(LOG_INFO, "Saved playlist position for: %u @ %d : %f", nxt->card_id, nxt->media_idx, nxt->media_pos);
     }
     fclose(positions_file);
