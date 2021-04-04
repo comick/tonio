@@ -118,9 +118,19 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
 
     struct MHD_Response *response;
     int ret;
+
+    tn_http_t *self = (tn_http_t *) cls;
+
+    if (strncmp(method, "POST")) {
+        // TODO read new config values from form data , add to cfg and:
+        FILE *cfg_fp = fopen(self->cfg->filename, "w");
+        P_CHECK(cfg_fp, return MHD_NO);
+        I_CHECK(cfg_print(self->cfg, cfg_fp), return MHD_NO);
+        I_CHECK(fclose(cfg_fp));
+    }
+
     char *page = "";
     long page_len = 0;
-    tn_http_t *self = (tn_http_t *) cls;
 
     int iw_sock = iw_sockets_open();
     I_CHECK(iw_sock, return MHD_NO);
@@ -144,6 +154,7 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     P_CHECK(response, return MHD_NO);
 
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_JSON);
+
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);
 
