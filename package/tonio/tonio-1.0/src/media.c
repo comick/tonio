@@ -37,10 +37,6 @@
 #include "tonio.h"
 
 #define AUDIO_OUTPUT "alsa"
-#define MIXER_CARD "default"
-#define MIXER_SELEM "PCM"
-// 0 to 1.0 limits maximum volume. TODO make it configurable
-#define VOL_MAX 0.7
 
 #define PLAYLIST_SUFFIX ".m3u"
 #define PLAYLIST_SUFFIX_LEN (strlen(PLAYLIST_SUFFIX))
@@ -65,11 +61,12 @@ struct tn_media {
     snd_mixer_t *mixer;
     snd_mixer_elem_t* mixer_elem;
     char *positions_filepath;
+    float volume_max;
 };
 
 static tn_media_position_t *_save_stream_positions(tn_media_t *, bool);
 
-tn_media_t *tn_media_init(char *media_root) {
+tn_media_t *tn_media_init(cfg_t *cfg) {
     // alsa mixer for volume
     snd_mixer_selem_id_t *selem_id = NULL;
 
@@ -81,11 +78,12 @@ tn_media_t *tn_media_init(char *media_root) {
     self->vlc = NULL;
     self->media_list_player = NULL;
     self->media_list = NULL;
-    self->media_root = media_root;
+    self->media_root = cfg_getstr(cfg, CFG_MEDIA_ROOT);
     self->media_positions = NULL;
     self->mixer = NULL;
     self->mixer_elem = NULL;
     self->positions_filepath = NULL;
+    self->volume_max = cfg_getfloat(cfg, CFG_VOLUME_MAX);
 
     // libvlc for playback
     const char *vlc_args[] = {
@@ -96,13 +94,13 @@ tn_media_t *tn_media_init(char *media_root) {
 
     I_CHECK(snd_mixer_open(&(self->mixer), 0), goto init_error);
 
-    I_CHECK(snd_mixer_attach(self->mixer, MIXER_CARD), goto init_error);
+    I_CHECK(snd_mixer_attach(self->mixer, cfg_getstr(cfg, CFG_MIXER_CARD)), goto init_error);
     I_CHECK(snd_mixer_selem_register(self->mixer, NULL, NULL), goto init_error);
     I_CHECK(snd_mixer_load(self->mixer), goto init_error);
 
     snd_mixer_selem_id_alloca(&selem_id);
     snd_mixer_selem_id_set_index(selem_id, 0);
-    snd_mixer_selem_id_set_name(selem_id, MIXER_SELEM);
+    snd_mixer_selem_id_set_name(selem_id, cfg_getstr(cfg, CFG_MIXER_SELEM));
     self->mixer_elem = snd_mixer_find_selem(self->mixer, selem_id);
     //snd_mixer_selem_id_free(&selem_id);
     P_CHECK(self->mixer_elem, goto init_error);
@@ -337,7 +335,7 @@ void tn_media_volume_down(tn_media_t *self) {
 
 void tn_media_volume_up(tn_media_t *self) {
     double vol_curr = get_normalized_playback_volume(self->mixer_elem, SND_MIXER_SABSTRACT_BASIC);
-    vol_curr = fmin(vol_curr + 0.05, VOL_MAX);
+    vol_curr = fmin(vol_curr + 0.05, self->volume_max);
     set_normalized_playback_volume(self->mixer_elem, SND_MIXER_SABSTRACT_BASIC, vol_curr, 0);
 }
 

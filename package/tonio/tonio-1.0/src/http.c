@@ -26,6 +26,7 @@
 #include <sys/syslog.h>
 #include <iwlib.h>
 #include <microhttpd.h>
+#include <confuse.h>
 
 #include "http.h"
 #include "tonio.h"
@@ -52,6 +53,7 @@ struct tn_http {
     struct MHD_Daemon *mhd_daemon;
     struct MHD_Response *root_response;
     tn_media_t *media;
+    cfg_t *cfg;
     uint8_t *selected_card_id;
 };
 
@@ -118,6 +120,7 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     int ret;
     char *page = "";
     long page_len = 0;
+    tn_http_t *self = (tn_http_t *) cls;
 
     int iw_sock = iw_sockets_open();
     I_CHECK(iw_sock, return MHD_NO);
@@ -125,9 +128,16 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     I_CHECK(iw_get_basic_config(iw_sock, "wlan0", &wconfig), return MHD_NO);
     iw_sockets_close(iw_sock);
 
-    page_len = snprintf(NULL, 0, SETTINGS_JSON_FMT, wconfig.essid, PIN_PREV, PIN_NEXT, PIN_VOL_UP, PIN_VOL_DOWN, PIN_RFID, SPI_DEV);
+    int pin_prev = cfg_getint(self->cfg, CFG_BTN_TRACK_PREVIOUS);
+    int pin_next = cfg_getint(self->cfg, CFG_BTN_TRACK_NEXT);
+    int pin_vol_up = cfg_getint(self->cfg, CFG_BTN_VOLUME_UP);
+    int pin_vol_down = cfg_getint(self->cfg, CFG_BTN_VOLUME_DOWN);
+    int pin_rfid = cfg_getint(self->cfg, CFG_MFRC522_SWITCH);
+    char *spi_dev = cfg_getstr(self->cfg, CFG_MFRC522_SPI_DEV);
+
+    page_len = snprintf(NULL, 0, SETTINGS_JSON_FMT, wconfig.essid, pin_prev, pin_next, pin_vol_up, pin_vol_down, pin_rfid, spi_dev);
     page = malloc(page_len + 1);
-    snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid, PIN_PREV, PIN_NEXT, PIN_VOL_UP, PIN_VOL_DOWN, PIN_RFID, SPI_DEV);
+    snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid, pin_prev, pin_next, pin_vol_up, pin_vol_down, pin_rfid, spi_dev);
 
     response = MHD_create_response_from_buffer(page_len,
             (void*) page, MHD_RESPMEM_MUST_FREE);
@@ -396,16 +406,16 @@ static int _handle_playlist(void *cls, struct MHD_Connection *connection,
     struct MHD_Response *response;
     int ret;
     struct stat playlist_stat;
-    
+
     const char *playlist_id = url + strlen(LIBRARY_URL_PATH) + 1;
-    
+
     unsigned long int playlist_tag_long = strtoul(playlist_id, NULL, 16);
     uint8_t playlist_tag[4];
-    playlist_tag[0] = playlist_tag_long >>24 & 0xFF;
+    playlist_tag[0] = playlist_tag_long >> 24 & 0xFF;
     playlist_tag[1] = playlist_tag_long >> 16 & 0xFF;
     playlist_tag[2] = playlist_tag_long >> 8 & 0xFF;
     playlist_tag[3] = playlist_tag_long >> 0 & 0xFF;
-        
+
     char *file_name = find_playlist_filename(self->library_root, playlist_tag);
 
     syslog(LOG_DEBUG, "Playlist requested for %s: %s", playlist_id, file_name);
@@ -459,15 +469,16 @@ enum MHD_Result tn_http_handle_request(void *cls, struct MHD_Connection *conn,
     return ret;
 }
 
-tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, char *library_root) {
+tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg) {
     struct stat index_stat;
     tn_http_t *self = malloc(sizeof (tn_http_t));
     P_CHECK(self, goto http_init_cleanup);
     self->media = media;
     self->selected_card_id = selected_card_id;
-    self->library_root = library_root;
+    self->library_root = cfg_getstr(cfg, CFG_MEDIA_ROOT);
     self->library_root_len = strlen(self->library_root);
     self->root_response = NULL;
+    self->cfg = cfg;
 
     self->mhd_daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD | MHD_USE_DUAL_STACK,
             PORT, NULL, NULL,

@@ -20,14 +20,16 @@
 #define HTTP_H
 
 #include <microhttpd.h>
+#include <confuse.h>
+
 #include "media.h"
 
 #define PORT 80
 
 typedef struct tn_http tn_http_t;
 
-tn_http_t *tn_http_init(tn_media_t *, uint8_t *, char *);
-void tn_http_stop(tn_http_t *);
+tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg);
+void tn_http_stop(tn_http_t *self);
 
 #endif /* HTTP_H */
 

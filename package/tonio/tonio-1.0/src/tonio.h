@@ -23,14 +23,16 @@
 #include <errno.h>
 #include <syslog.h>
 
-// TODO take those as cli args or env or something.
-#define PIN_PREV 1
-#define PIN_NEXT 4
-#define PIN_VOL_DOWN 29
-#define PIN_VOL_UP 5
-
-#define PIN_RFID 6
-#define SPI_DEV "/dev/spidev0.0"
+#define CFG_MEDIA_ROOT "media-root"
+#define CFG_MIXER_CARD "mixer-card"
+#define CFG_MIXER_SELEM "mixer-selem"
+#define CFG_VOLUME_MAX "volume-max"
+#define CFG_BTN_TRACK_PREVIOUS "btn-track-previous"
+#define CFG_BTN_TRACK_NEXT "btn-track-next"
+#define CFG_BTN_VOLUME_DOWN "btn-volume-down"
+#define CFG_BTN_VOLUME_UP "btn-volume-up"
+#define CFG_MFRC522_SWITCH "mfrc522-switch"
+#define CFG_MFRC522_SPI_DEV "mfrc522-spi-dev"
 
 #define I_CHECK(V, A) do { \
     int ret = (V); \

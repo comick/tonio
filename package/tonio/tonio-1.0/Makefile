@@ -1,7 +1,7 @@
 TARGET = tonio
-LIBS = -lwiringPi -lm -liw $(shell pkg-config --libs libmicrohttpd libvlc alsa)
+LIBS = -lwiringPi -lm -liw $(shell pkg-config --libs libmicrohttpd libvlc alsa libconfuse)
 CC = gcc
-CFLAGS = -g -Werror $(shell pkg-config --cflags libmicrohttpd libvlc alsa)
+CFLAGS = -g -Werror $(shell pkg-config --cflags libmicrohttpd libvlc alsa libconfuse)
 
 .PHONY: default all clean
 

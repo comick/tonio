@@ -26,14 +26,29 @@
 #include <dirent.h>
 #include <wiringPi.h>
 #include <stdbool.h>
+#include <confuse.h>
 
 #include "tonio.h"
 #include "http.h"
 #include "media.h"
 
+
+static cfg_opt_t config_opts[] = {
+    CFG_STR(CFG_MEDIA_ROOT, "/mnt/media", CFGF_NONE),
+    CFG_STR(CFG_MIXER_CARD, "default", CFGF_NONE),
+    CFG_STR(CFG_MIXER_SELEM, "PCM", CFGF_NONE),
+    CFG_FLOAT(CFG_VOLUME_MAX, 0.7, CFGF_NONE),
+    CFG_INT(CFG_BTN_TRACK_PREVIOUS, 1, CFGF_NONE),
+    CFG_INT(CFG_BTN_TRACK_NEXT, 4, CFGF_NONE),
+    CFG_INT(CFG_BTN_VOLUME_DOWN, 29, CFGF_NONE),
+    CFG_INT(CFG_BTN_VOLUME_UP, 5, CFGF_NONE),
+    CFG_INT(CFG_MFRC522_SWITCH, 6, CFGF_NONE),
+    CFG_STR(CFG_MFRC522_SPI_DEV, "/dev/spidev0.0", CFGF_NONE),
+    CFG_END()
+};
+
 int main(int argc, char** argv) {
 
-    char *library_root = argv[1];
     MFRC522_Status_t ret;
     uint8_t ret_int;
     //Recognized card ID
@@ -48,26 +63,43 @@ int main(int argc, char** argv) {
 
     openlog("tonio", LOG_PID | LOG_CONS | LOG_PERROR, LOG_USER);
 
-    tn_media_t *media = tn_media_init(library_root);
+    cfg_t *cfg = cfg_init(config_opts, CFGF_NONE);
 
-    ret = MFRC522_Init(SPI_DEV, PIN_RFID, 'B');
+    if (!cfg || cfg_parse(cfg, argv[1]) == CFG_PARSE_ERROR) {
+        syslog(LOG_CRIT, "Cannor parse configuration at %s.", argv[1]);
+        return EXIT_FAILURE;
+    }
+
+    tn_media_t *media = tn_media_init(cfg);
+
+    ret = MFRC522_Init(
+            cfg_getstr(cfg, CFG_MFRC522_SPI_DEV),
+            cfg_getint(cfg, CFG_MFRC522_SWITCH),
+            'B'
+            );
+
     if (ret < 0) {
         syslog(LOG_CRIT, "RFID Failed to initialize");
         exit(EXIT_FAILURE);
     }
     syslog(LOG_INFO, "RFID reader successfully initialized");
 
-    pinMode(PIN_PREV, INPUT);
-    pinMode(PIN_NEXT, INPUT);
-    pinMode(PIN_VOL_DOWN, INPUT);
-    pinMode(PIN_VOL_UP, INPUT);
+    int pin_track_next = cfg_getint(cfg, CFG_BTN_TRACK_NEXT);
+    int pin_track_previous = cfg_getint(cfg, CFG_BTN_TRACK_PREVIOUS);
+    int pin_volume_down= cfg_getint(cfg, CFG_BTN_VOLUME_DOWN);
+    int pin_volume_up = cfg_getint(cfg, CFG_BTN_VOLUME_UP);
+    
+    pinMode(pin_track_previous, INPUT);
+    pinMode(pin_track_next, INPUT);
+    pinMode(pin_volume_down, INPUT);
+    pinMode(pin_volume_up, INPUT);
 
-    pullUpDnControl(PIN_PREV, PUD_UP);
-    pullUpDnControl(PIN_NEXT, PUD_UP);
-    pullUpDnControl(PIN_VOL_DOWN, PUD_UP);
-    pullUpDnControl(PIN_VOL_UP, PUD_UP);
+    pullUpDnControl(pin_track_previous, PUD_UP);
+    pullUpDnControl(pin_track_next, PUD_UP);
+    pullUpDnControl(pin_volume_down, PUD_UP);
+    pullUpDnControl(pin_volume_up, PUD_UP);
 
-    tn_http_t *http = tn_http_init(media, selected_card_id, library_root);
+    tn_http_t *http = tn_http_init(media, selected_card_id, cfg);
 
     while (true) {
 
@@ -97,21 +129,21 @@ int main(int argc, char** argv) {
                         (uint8_t*) default_key, (uint8_t*) card_id) == MI_OK) {
                     nanosleep(&poll_interval, NULL);
 
-                    int current_prev_state = digitalRead(PIN_PREV);
+                    int current_prev_state = digitalRead(pin_track_previous);
                     if (current_prev_state == PUD_DOWN && last_prev_state == PUD_OFF) {
                         tn_media_previous(media);
                     }
                     last_prev_state = current_prev_state;
 
-                    int current_next_state = digitalRead(PIN_NEXT);
+                    int current_next_state = digitalRead(pin_track_next);
                     if (current_next_state == PUD_DOWN && last_next_state == PUD_OFF) {
                         tn_media_next(media);
                     }
                     last_next_state = current_next_state;
 
                     // volume kept continuous, more pleasant.
-                    if (digitalRead(PIN_VOL_DOWN) == PUD_DOWN) tn_media_volume_down(media);
-                    if (digitalRead(PIN_VOL_UP) == PUD_DOWN) tn_media_volume_up(media);
+                    if (digitalRead(pin_volume_down) == PUD_DOWN) tn_media_volume_down(media);
+                    if (digitalRead(pin_volume_up) == PUD_DOWN) tn_media_volume_up(media);
 
                 }
 
@@ -137,6 +169,8 @@ int main(int argc, char** argv) {
 
     tn_media_destroy(media);
     tn_http_stop(http);
+
+    cfg_free(cfg);
 
     closelog();
 
