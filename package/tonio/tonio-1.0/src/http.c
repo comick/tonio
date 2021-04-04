@@ -121,12 +121,12 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
 
     tn_http_t *self = (tn_http_t *) cls;
 
-    if (strncmp(method, "POST")) {
+    if (strcmp(method, "POST")) {
         // TODO read new config values from form data , add to cfg and:
         FILE *cfg_fp = fopen(self->cfg->filename, "w");
         P_CHECK(cfg_fp, return MHD_NO);
         I_CHECK(cfg_print(self->cfg, cfg_fp), return MHD_NO);
-        I_CHECK(fclose(cfg_fp));
+        I_CHECK(fclose(cfg_fp), return MHD_NO);
     }
 
     char *page = "";
