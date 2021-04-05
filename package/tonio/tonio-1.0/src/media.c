@@ -202,8 +202,8 @@ static int _apply_saved_position(tn_media_t *self, libvlc_media_player_t * media
 
 static void _save_stream_positions_onchange(const struct libvlc_event_t *event, void *data) {
     tn_media_t *self = (tn_media_t *) data;
-
-    _save_stream_positions(self, false);
+  
+    _save_stream_positions(self, true);
 }
 
 bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
@@ -259,8 +259,8 @@ bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
         libvlc_media_list_player_play(self->media_list_player);
     }
 
-    libvlc_event_manager_t *evt_manager = libvlc_media_player_event_manager(media_player);
-    I_CHECK(libvlc_event_attach(evt_manager, libvlc_MediaPlayerPositionChanged, _save_stream_positions_onchange, self), goto play_cleanup);
+    //libvlc_event_manager_t *evt_manager = libvlc_media_player_event_manager(media_player);
+    //I_CHECK(libvlc_event_attach(evt_manager, libvlc_MediaPlayerPositionChanged, _save_stream_positions_onchange, self), goto play_cleanup);
 
     played = true;
 
@@ -308,7 +308,7 @@ void tn_media_next(tn_media_t *self) {
     if (self->media_list_player == NULL) return;
 
     I_CHECK(libvlc_media_list_player_next(self->media_list_player), NULL);
-    _save_stream_positions(self, true);
+    _save_stream_positions(self, false);
 }
 
 void tn_media_previous(tn_media_t *self) {
@@ -322,7 +322,7 @@ void tn_media_previous(tn_media_t *self) {
     // start current track if playing fro more than 2 secs
     if (time > 2000) libvlc_media_player_set_time(media_player, 0);
     else I_CHECK(libvlc_media_list_player_previous(self->media_list_player), NULL);
-    _save_stream_positions(self, true);
+    _save_stream_positions(self, false);
 
     libvlc_media_player_release(media_player);
 }
@@ -342,7 +342,7 @@ void tn_media_volume_up(tn_media_t *self) {
 void tn_media_stop(tn_media_t *self) {
     if (self->media_list_player == NULL) return;
 
-    tn_media_position_t *curr_pos = _save_stream_positions(self, true);
+    tn_media_position_t *curr_pos = _save_stream_positions(self, false);
 
     if (self->media_list != NULL) libvlc_media_list_release(self->media_list);
     self->media_list == NULL;
@@ -369,10 +369,11 @@ tn_media_position_t *_save_stream_positions(tn_media_t *self, bool on_position_c
     curr_media_player = libvlc_media_list_player_get_media_player(self->media_list_player);
     P_CHECK(curr_media_player, goto save_pos_clean);
 
-    if (!on_position_changed) {
+    /*if (!on_position_changed) {
+        // TODO wrong, reset the listener on next/prev. ok for stop only.
         libvlc_event_manager_t *evt_manager = libvlc_media_player_event_manager(curr_media_player);
         libvlc_event_detach(evt_manager, libvlc_MediaPlayerPositionChanged, _save_stream_positions_onchange, self);
-    }
+    }*/
 
     curr_media = libvlc_media_player_get_media(curr_media_player);
     P_CHECK(curr_media, goto save_pos_clean);
@@ -385,14 +386,14 @@ tn_media_position_t *_save_stream_positions(tn_media_t *self, bool on_position_c
     HASH_FIND_INT(self->media_positions, &(self->curr_card_id), media_pos);
 
     // Do not write anything when called on event and last save occurred less than a second ago.
-    if (on_position_changed) {
+    /*if (on_position_changed) {
         struct timeval now;
         I_CHECK(gettimeofday(&now, NULL), goto save_pos_clean);
 
-        if (media_pos->time_saved.tv_sec >= now.tv_sec) {
+        if (media_pos->time_saved.tv_sec <= now.tv_sec) {
             goto save_pos_clean;
         }
-    }
+    }*/
 
     if (media_pos == NULL) {
         media_pos = malloc(sizeof (tn_media_position_t));
