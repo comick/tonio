@@ -45,6 +45,7 @@
  * Includes
  */
 #include <stdint.h>
+#include <gpiod.h>
 /**
  * Pinout
  *
@@ -211,7 +212,7 @@ typedef enum{
  * Prepare MFRC522 to work with RFIDs
  *
  */
-extern int MFRC522_Init(char *spi_dev, int pin, char Type);
+extern int MFRC522_Init(struct gpiod_line *gpio_line, char *spi_dev, char Type);
 
 /**
  * Check for RFID card existance
@@ -250,7 +251,7 @@ extern void MFRC522_ClearBitMask(uint8_t reg, uint8_t mask);
 extern void MFRC522_AntennaOn(void);
 extern void MFRC522_AntennaOff(void);
 extern void MFRC522_Reset(void);
-int MFRC522_Setup(int pin, char Type);
+int MFRC522_Setup(struct gpiod_line *gpio_line, char Type);
 extern MFRC522_Status_t MFRC522_Request(uint8_t reqMode, uint8_t* TagType);
 extern MFRC522_Status_t MFRC522_ToCard(uint8_t command, uint8_t* sendData, uint8_t sendLen, uint8_t* backData, uint16_t* backLen);
 extern MFRC522_Status_t MFRC522_Anticoll(uint8_t* serNum);

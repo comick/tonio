@@ -1,6 +1,7 @@
 menuconfig BR2_PACKAGE_TONIO
     bool "tonio"
-    select BR2_PACKAGE_WIRINGPI
+    select BR2_PACKAGE_LIBGPIOD
+    select BR2_PACKAGE_LIBGPIOD_TOOLS
     select BR2_PACKAGE_ALSA_LIB
     select BR2_PACKAGE_LIBMICROHTTPD
     select BR2_PACKAGE_VLC

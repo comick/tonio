@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <syslog.h>
+#include <string.h>
 
 #define CFG_MEDIA_ROOT "media-root"
 #define CFG_MIXER_CARD "mixer-card"

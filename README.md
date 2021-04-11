@@ -27,7 +27,7 @@ Super simple human interface design:
 Getting started from source
 ===========================
 
-This is guiding through getting started from sources. If you want to get started from pre-built images, take a look to the [wiki Quick Start page](https://github.com/comick/tonio/wiki/Quick-Start).
+If you want to get started from pre-built images, take a look to the [wiki Quick Start page](https://github.com/comick/tonio/wiki/Quick-Start).
 
 Supported hardware
 ------------------
@@ -42,18 +42,9 @@ Supported hardware
 Wiring things together
 ----------------------
 
-Push buttons wiring is configured in `tonio.h` header.
-Here are the default settings, using `wiringPi` pin numbering:
+Push buttons wiring can be configured via `/etc/tonio.conf`. Linux chardev GPIO pin numbers apply. For debugging convenience `libgpiod` tools are made available as a tonio dependency.
 
-```
-#PIN_PREV 1
-#define PIN_NEXT 4
-
-#define PIN_VOL_DOWN 29
-#define PIN_VOL_UP 5
-```
-
-Tonio daemon assumes SPI interface to RC522, connect accordingly.
+Tonio daemon assumes SPI interface to RC522. Both switch GPIO and spid dev can be configured via `/etc/tonio.conf`.
 
 [Reference assembly documentation is under progress in the wiki](https://github.com/comick/tonio/wiki/Reference-Assembly).
 
@@ -123,8 +114,8 @@ Until playlist management from web UI is complete, some more work is required.
 
 Media files and playlist are meant to be copied on the `vfat` partition named `TONIO` that Tonio mounts at `/mnt/media/`.
 When you place a tag, Tonio daemon looks for the folder `/mnt/media/library/${MY_TAG_ID}`.
-If folder is there, the file `/usr/share/tonio/library/${MY_TAG_ID}/${MY_TAG_ID}.m3u` will be played. That's your entry point.
-File format is the kinda-standard `m3u`, anything uderstood by vlc can be put there. Make sure both `m3u` and media files are uploaded and paths in `m3u` are correct.
+If folder is there, the first file with extension `.m3u`, found in folder `/usr/share/tonio/library/${MY_TAG_ID}` will be played. That's your entry point.
+File format is the kinda-standard `m3u`, anything uderstood by vlc can be put there. Make sure both `m3u` and media files are uploaded and __relative__ paths in `m3u` are correct.
 
 > Hint: web radios also work. Just make sure your tonio is connected to the Internet.
 
@@ -144,13 +135,10 @@ Sure enough, you can also say thanks and show your Tonio at work!
 Contributing
 ============
 
-You're wellcome. Merge requests are the way to go.
+You're wellcome. Pull requests are the way to go.
 Just in case you're out of ideas:
 
-- [ ] First time setup page
-- [ ] Finish web UI network config
-- [ ] Finalize web interface for ordinary people to setup playlists
-- [ ] Move to `pigpio`, maybe abstract gpio layer to support more boards, maybe devfs gpio
 - [ ] Supporting/testing more boards (eg: pi zero, orange pi, ...)
-- [ ] Strip kernel even more from unused modules and move to static device table to faster build and boot
-
+- [ ] First time setup page
+- [ ] Web UI needs is mostly read only
+- [ ] Finalize web interface for ordinary people to setup playlists
