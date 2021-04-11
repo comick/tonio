@@ -35,6 +35,7 @@
 
 static cfg_opt_t config_opts[] = {
     CFG_STR(CFG_MEDIA_ROOT, "/mnt/media", CFGF_NONE),
+    CFG_STR(CFG_GPIOD_CHIP_NAME, "gpiochip0", CFGF_NONE),
     CFG_STR(CFG_MIXER_CARD, "default", CFGF_NONE),
     CFG_STR(CFG_MIXER_SELEM, "PCM", CFGF_NONE),
     CFG_FLOAT(CFG_VOLUME_MAX, 0.7, CFGF_NONE),
@@ -75,7 +76,7 @@ int main(int argc, char** argv) {
     tn_media_t *media = tn_media_init(cfg);
 
     // TODO make this configured
-    P_CHECK(gpio_chip = gpiod_chip_open_by_name("gpiochip0"), return EXIT_FAILURE);
+    P_CHECK(gpio_chip = gpiod_chip_open_by_name(cfg_getstr(cfg, CFG_GPIOD_CHIP_NAME)), return EXIT_FAILURE);
     P_CHECK(gpio_mfrc522_line = gpiod_chip_get_line(gpio_chip, cfg_getint(cfg, CFG_MFRC522_SWITCH)), return EXIT_FAILURE);
 
     ret = MFRC522_Init(gpio_mfrc522_line, cfg_getstr(cfg, CFG_MFRC522_SPI_DEV), 'B');

@@ -369,6 +369,7 @@
                                     const gpioVolup = document.getElementById('gpio-volup');
                                     const gpioVoldown = document.getElementById('gpio-voldown');
                                     const spiDev = document.getElementById('spi-dev');
+                                    const gpioChipName = document.getElementById('gpio-chip-name');
 
                                     iwlist.innerHTML = '';
 
@@ -400,6 +401,7 @@
                                     gpioVolup.value = settings.pin_volup;
                                     gpioVoldown.value = settings.pin_voldown;
                                     spiDev.value = settings.spi_rfid;
+                                    gpioChipName.value = settings.gpio_chip;
                                     loadIwlist(settings.essid);
 
                                 },
@@ -481,6 +483,7 @@
                 <tr><td>Wireless password:</td><td><input type="password" id="iwpass" name="iwpass"></td></tr>
 
                 <tr><td colspan="2"><h4>Advanced settings (require restart)</h4></td></tr>
+                <tr><td>GPIOD chip name:</td><td><input type="text" id="gpio-chip-name" name="gpio-chip-name"></td></tr>
                 <tr><td>Previous track gpio pin:</td><td><input type="number" id="gpio-prev" name="gpio-prev" min="0" max="30"></td></tr>
                 <tr><td>Next track gpio pin:</td><td><input type="number" id="gpio-next" name="gpio-next" min="0" max="30"></td></tr>
                 <tr><td>Volume up gpio pin:</td><td><input type="number" id="gpio-volup" name="gpio-volup" min="0" max="30"></td></tr>

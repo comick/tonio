@@ -42,7 +42,7 @@
 #define STATUS_TAG_PRESENT_JSON_FMT "{\"present\":true,\"id\":\"%02X%02X%02X%02X\",\"internet\":false}"
 #define STATUS_TAG_MISSING_JSON "{\"present\":false,\"internet\":false}"
 
-#define SETTINGS_JSON_FMT "{\"essid\":\"%s\",\"pin_prev\":%d,\"pin_next\":%d,\"pin_volup\":%d,\"pin_voldown\":%d,\"pin_rfid\":%d,\"spi_rfid\":\"%s\"}"
+#define SETTINGS_JSON_FMT "{\"essid\":\"%s\",\"pin_prev\":%d,\"pin_next\":%d,\"pin_volup\":%d,\"pin_voldown\":%d,\"pin_rfid\":%d,\"spi_rfid\":\"%s\",\"gpio_chip\":\"%s\"}"
 
 #define LIBRARY_URL_PATH "/library"
 
@@ -144,10 +144,11 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     int pin_vol_down = cfg_getint(self->cfg, CFG_BTN_VOLUME_DOWN);
     int pin_rfid = cfg_getint(self->cfg, CFG_MFRC522_SWITCH);
     char *spi_dev = cfg_getstr(self->cfg, CFG_MFRC522_SPI_DEV);
+    char *gpio_chip = cfg_getstr(self->cfg, CFG_GPIOD_CHIP_NAME);
 
-    page_len = snprintf(NULL, 0, SETTINGS_JSON_FMT, wconfig.essid, pin_prev, pin_next, pin_vol_up, pin_vol_down, pin_rfid, spi_dev);
+    page_len = snprintf(NULL, 0, SETTINGS_JSON_FMT, wconfig.essid, pin_prev, pin_next, pin_vol_up, pin_vol_down, pin_rfid, spi_dev, gpio_chip);
     page = malloc(page_len + 1);
-    snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid, pin_prev, pin_next, pin_vol_up, pin_vol_down, pin_rfid, spi_dev);
+    snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid, pin_prev, pin_next, pin_vol_up, pin_vol_down, pin_rfid, spi_dev, gpio_chip);
 
     response = MHD_create_response_from_buffer(page_len,
             (void*) page, MHD_RESPMEM_MUST_FREE);
