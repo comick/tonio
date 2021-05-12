@@ -227,7 +227,8 @@
 
                             function playlistTable(collapsed) {
                                 let containerElem = plContainer.content.firstChild.cloneNode(true);
-                                if (!collapsed) containerElem.style.display = 'table';
+                                if (!collapsed)
+                                    containerElem.style.display = 'table';
                                 return containerElem;
                             }
 
@@ -291,7 +292,7 @@
                                     rootElem.replaceChild(titleElem, previousTitleElem);
                                 else
                                     rootElem.appendChild(titleElem);
-                                
+
                                 if (previousTracksElem)
                                     rootElem.replaceChild(tracksElem, previousTracksElem);
                                 else
@@ -477,21 +478,47 @@
 
         <div id="settings-stage" class="stage">
 
-            <table>
-                <tr><td colspan="2"><h4>Networking</h4></td></tr>
-                <tr><td>Wireless network:</td><td><select name="iwlist" id="iwlist"></select><span id="iwlist-reload" class="disabled">&#x27f3;</span></td></tr>
-                <tr><td>Wireless password:</td><td><input type="password" id="iwpass" name="iwpass"></td></tr>
 
-                <tr><td colspan="2"><h4>Advanced settings (require restart)</h4></td></tr>
-                <tr><td>GPIOD chip name:</td><td><input type="text" id="gpio-chip-name" name="gpio-chip-name"></td></tr>
-                <tr><td>Previous track gpio pin:</td><td><input type="number" id="gpio-prev" name="gpio-prev" min="0" max="30"></td></tr>
-                <tr><td>Next track gpio pin:</td><td><input type="number" id="gpio-next" name="gpio-next" min="0" max="30"></td></tr>
-                <tr><td>Volume up gpio pin:</td><td><input type="number" id="gpio-volup" name="gpio-volup" min="0" max="30"></td></tr>
-                <tr><td>Volume down gpio pin:</td><td><input type="number" id="gpio-voldown" name="gpio-voldown" min="0" max="30"></td></tr>
-                <tr><td>RFID Reader SPI device:</td><td><input type="text" id="spi-dev" name="spi-dev"></td></tr>
+            <script>
+                function applySettings() {
+                    var url = "/settings";
+                    var request = new XMLHttpRequest();
+                    request.open('POST', url, true);
+                    request.onload = function () { // request successful
+                        // we can use server response to our request now
+                        console.log(request.responseText);
+                    };
 
-                <tr><td></td><td><input type="submit" value="Apply"/></td></tr>
-            </table>
+                    request.onerror = function () {
+                        // request failed
+                    };
+
+                    request.send(new FormData(event.target)); // create FormData from form that triggered event
+                    return false;
+                }
+
+            </script>
+
+
+            <form action="/settings" method="POST" onsubmit="return applySettings()">
+                <table>
+                    <tr><td colspan="2"><h4>Networking</h4></td></tr>
+                    <tr><td>Wireless network:</td><td><select name="iwlist" id="iwlist"></select><span id="iwlist-reload" class="disabled">&#x27f3;</span></td></tr>
+                    <tr><td>Wireless password:</td><td><input type="password" id="iwpass" name="iwpass"></td></tr>
+                </table>
+
+                <table>
+                    <tr><td colspan="2"><h4>Advanced settings (require restart)</h4></td></tr>
+                    <tr><td>GPIOD chip name:</td><td><input type="text" id="gpio-chip-name" name="gpio-chip-name"></td></tr>
+                    <tr><td>Previous track gpio pin:</td><td><input type="number" id="gpio-prev" name="gpio-prev" min="0" max="30"></td></tr>
+                    <tr><td>Next track gpio pin:</td><td><input type="number" id="gpio-next" name="gpio-next" min="0" max="30"></td></tr>
+                    <tr><td>Volume up gpio pin:</td><td><input type="number" id="gpio-volup" name="gpio-volup" min="0" max="30"></td></tr>
+                    <tr><td>Volume down gpio pin:</td><td><input type="number" id="gpio-voldown" name="gpio-voldown" min="0" max="30"></td></tr>
+                    <tr><td>RFID Reader SPI device:</td><td><input type="text" id="spi-dev" name="spi-dev"></td></tr>
+
+                    <tr><td></td><td><input type="submit" value="Apply settings" /></td></tr>
+                </table>
+            </form>
 
         </div>
 

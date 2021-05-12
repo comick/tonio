@@ -27,7 +27,9 @@ Super simple human interface design:
 Getting started from source
 ===========================
 
-If you want to get started from pre-built images, take a look to the [wiki Quick Start page](https://github.com/comick/tonio/wiki/Quick-Start).
+Pre-built images are available for supported boards. Take a look to the [wiki Quick Start page](https://github.com/comick/tonio/wiki/Quick-Start).
+
+Still, you may want to build the root image yourself. Supporting a new board or adding more codecs than the default are all good reasons for doing so.
 
 Supported hardware
 ------------------
@@ -36,15 +38,16 @@ Supported hardware
   - Raspberry Pi 3
   - Raspberry Pi 0 Wireless (fat kernel, untested audio)
 - RC522 RFID
-- Push buttons for volume and track control (optional)
+- Push buttons via libgpiod for volume and track control (optional)
 
 
 Wiring things together
 ----------------------
 
-Push buttons wiring can be configured via `/etc/tonio.conf`. Linux chardev GPIO pin numbers apply. For debugging convenience `libgpiod` tools are made available as a tonio dependency.
+All aspects of `tonio` daemon are configured via `/etc/tonio.conf`, using `libconfuse` format.
+Linux chardev GPIO pin numbers apply. For debugging convenience `libgpiod` tools are made available as a tonio dependency.
 
-Tonio daemon assumes SPI interface to RC522. Both switch GPIO and spid dev can be configured via `/etc/tonio.conf`.
+Tonio daemon assumes SPI interface to RC522. GPIO switch and spid device can be configured via `/etc/tonio.conf`.
 
 [Reference assembly documentation is under progress in the wiki](https://github.com/comick/tonio/wiki/Reference-Assembly).
 
@@ -52,22 +55,22 @@ Tonio daemon assumes SPI interface to RC522. Both switch GPIO and spid dev can b
 Building the root file system
 -----------------------------
 
-[Download Buildroot](https://buildroot.org/download.html) and extract into some folder, say `$HOME/buildroot-2020.02.11`.
-Version 2020.02.11 is currently used. The project tries to keep current with latest LTS version of Buildroot.
+[Download Buildroot](https://buildroot.org/download.html) and extract into some folder, say `$HOME/buildroot-2021.02.2`.
+Version 2021.02.2 is currently used. The project tries to keep current with latest LTS version of Buildroot.
 
 Clone this project in your favorite folder, say `$HOME/tonio`.
 
 ```
-$ cd $HOME/buildroot-2020.02.11
+$ cd $HOME/buildroot-2021.02.2
 $ make BR2_EXTERNAL=$HOME/tonio tonio_raspberrypi3_defconfig
 $ make
 ```
 
 > HINT: `raspberry3` is used in this example, but multiple boards are supported, see the `board` folder for the list of those.
 
-wait. Buildroot is building the root image from the ground up, it will take some time. Kind half an hour or more.
+Time to wait... Buildroot is building both toolchain and root image from the ground up, it will take some time. Kind half an hour or more.
 
-When you see your command prompt again, and few lines like:
+After a while you should see your command prompt again, preceeded by few lines like:
 
 ```
 ...
@@ -77,10 +80,10 @@ INFO: hdimage(sdcard.img): adding partition 'library' (in MBR) from 'library.vfa
 INFO: hdimage(sdcard.img): writing MBR
 ```
 
-that means build is done.
+That means your build is done.
 
-Writing image to SD card
-------------------------
+Writing image to an SD card
+---------------------------
 
 Root image was built successfully and you SD card image is ready.
 First find out your SD card device file, say /dev/sdX, then:
