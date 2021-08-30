@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 env:
-  buildroot-version: 2021.02.2
+  buildroot-version: 2021.02.4
 
 jobs:
   RPi3:

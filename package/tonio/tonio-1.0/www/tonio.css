@@ -1,0 +1,126 @@
+
+html { 
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: #44475a;
+    color: #f8f8f2;
+    font-family: sans-serif;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+ul.menu {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+ul.menu li {
+    float: left;
+}
+
+
+a {
+    color: #8be9fd;
+}
+a:visited {
+    color: #bd93f9;
+}
+
+li a, li a:visited {
+    display: block;
+    color: #f8f8f2;
+    text-align: center;
+    padding: 1em 1em;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+li a:hover:not(.active) {
+    background-color: #6272a4;
+}
+
+.active {
+    background-color: #282a36;
+}
+
+.stage {
+    padding: 1em;
+    background-color: #282a36;
+    display: none;
+    overflow: auto;
+}
+
+.log {
+    white-space: pre;
+    font-family: monospace;
+}
+
+.log .debug {
+    color: #6272a4;
+}
+
+.log .info {
+    font-weight: bold;
+}
+
+.log .warn {
+    color: #ffb86c;
+    font-weight: bold;
+}
+
+.log .error {
+    color: #ff5555;
+    font-weight: bold;
+}
+
+.log .other {
+    color: #44475a;
+}
+
+.status-item {
+    font-weight: bold;
+}
+
+#inet-connected {
+    color: #50fa7b;
+}
+#inet-disconnected {
+    color: #ff5555;
+}
+
+#iwlist-reload {
+    font-size: 150%;
+    margin: 0.5em;
+}
+
+#iwlist-reload.enabled {
+    cursor: pointer;
+    color: #f8f8f2;
+}
+
+#iwlist-reload.disabled {
+    color: #6272a4;
+}
+
+.settings-adv {
+    display: none;
+}
+
+.track-del {
+    color: #ff5555;
+}
+
+.track-up, .track-down {
+    color: #bd93f9;
+}
+
+.button {
+    cursor: pointer;
+}

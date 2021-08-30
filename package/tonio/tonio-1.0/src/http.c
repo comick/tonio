@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 Michele Comignano <comick@gmail.com>
+ * Copyright (c) 2020, 2021 Michele Comignano <comick@gmail.com>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -27,20 +27,21 @@
 #include <iwlib.h>
 #include <microhttpd.h>
 #include <confuse.h>
+#include <magic.h>
 
 #include "http.h"
 #include "tonio.h"
 #include "media.h"
 
-#define INDEX_HTML_PATH "/usr/share/tonio/www/index.html"
+#define STATIC_RES_FORMAT "/usr/share/tonio/www%s"
 
 #define MIME_JSON "application/json"
-#define MIME_HTML "text/html"
 #define MIME_TEXT_PLAIN "text/plain"
 
-#define STATUS_TAG_PLAYING_JSON_FMT "{\"present\":true,\"id\":\"%02X%02X%02X%02X\",\"track_current\":%d,\"track_total\":%d,\"track_name\":\"%s\",\"internet\":false}"
-#define STATUS_TAG_PRESENT_JSON_FMT "{\"present\":true,\"id\":\"%02X%02X%02X%02X\",\"internet\":false}"
-#define STATUS_TAG_MISSING_JSON "{\"present\":false,\"internet\":false}"
+#define JSON_TRUE "true"
+#define JSON_FALSE "false"
+
+#define STATUS_TAG_JSON_FMT "{\"present\":%s,\"id\":\"%02X%02X%02X%02X\",\"track_current\":%d,\"track_total\":%d,\"track_name\":\"%s\",\"internet\":%s}"
 
 #define SETTINGS_JSON_FMT "{\"essid\":\"%s\",\"pin_prev\":%d,\"pin_next\":%d,\"pin_volup\":%d,\"pin_voldown\":%d,\"pin_rfid\":%d,\"spi_rfid\":\"%s\",\"gpio_chip\":\"%s\"}"
 
@@ -51,10 +52,12 @@ struct tn_http {
     size_t library_root_len;
 
     struct MHD_Daemon *mhd_daemon;
-    struct MHD_Response *root_response;
+    bool internet_connected;
     tn_media_t *media;
     cfg_t *cfg;
     uint8_t *selected_card_id;
+
+    magic_t magic;
 };
 
 static int _handle_status(void *cls, struct MHD_Connection *connection,
@@ -69,38 +72,29 @@ static int _handle_status(void *cls, struct MHD_Connection *connection,
     char *page = "";
     long page_len = 0;
     uint8_t *card_id = self->selected_card_id;
-    uint8_t card_present = card_id[0] | card_id[1] | card_id[2] | card_id[3];
 
-    enum MHD_ResponseMemoryMode mem_mode;
-    if (tn_media_is_playing(self->media)) {
-        int current_track = tn_media_track_current(self->media);
-        int track_total = tn_media_track_total(self->media);
-        char *track_name = tn_media_track_name(self->media);
-        page_len = snprintf(NULL, 0, STATUS_TAG_PLAYING_JSON_FMT,
-                card_id[0], card_id[1], card_id[2], card_id[3],
-                current_track, track_total, track_name);
-        page = malloc(page_len + 1);
-        snprintf(page, page_len + 1, STATUS_TAG_PLAYING_JSON_FMT,
-                card_id[0], card_id[1], card_id[2], card_id[3],
-                current_track, track_total, track_name);
+    char *internet_status = self->internet_connected ? JSON_TRUE : JSON_FALSE;
+    char *tag_present = (card_id[0] | card_id[1] | card_id[2] | card_id[3]) ? JSON_TRUE : JSON_FALSE;
+    bool playing = tn_media_is_playing(self->media);
+    int current_track, track_total = -1;
+    char *track_name = "";
 
-        mem_mode = MHD_RESPMEM_MUST_FREE;
-    } else if (card_present) {
-        page_len = snprintf(NULL, 0, STATUS_TAG_PRESENT_JSON_FMT,
-                card_id[0], card_id[1], card_id[2], card_id[3]);
-        page = malloc(page_len + 1);
-        snprintf(page, page_len + 1, STATUS_TAG_PRESENT_JSON_FMT,
-                card_id[0], card_id[1], card_id[2], card_id[3]);
-
-        mem_mode = MHD_RESPMEM_MUST_FREE;
-    } else {
-        page = STATUS_TAG_MISSING_JSON;
-        page_len = strlen(page);
-        mem_mode = MHD_RESPMEM_PERSISTENT;
+    if (playing) {
+        current_track = tn_media_track_current(self->media);
+        track_total = tn_media_track_total(self->media);
+        track_name = tn_media_track_name(self->media);
     }
 
+    page_len = snprintf(NULL, 0, STATUS_TAG_JSON_FMT, tag_present,
+            card_id[0], card_id[1], card_id[2], card_id[3],
+            current_track, track_total, track_name, internet_status);
+    page = malloc(page_len + 1);
+    snprintf(page, page_len + 1, STATUS_TAG_JSON_FMT, tag_present,
+            card_id[0], card_id[1], card_id[2], card_id[3],
+            current_track, track_total, track_name, internet_status);
+
     response = MHD_create_response_from_buffer(page_len,
-            (void*) page, mem_mode);
+            (void*) page, MHD_RESPMEM_MUST_FREE);
     P_CHECK(response, return MHD_NO);
 
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_JSON);
@@ -162,17 +156,46 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     return ret;
 }
 
-static int _handle_root(void *cls, struct MHD_Connection *connection,
+static int _handle_static(void *cls, struct MHD_Connection *connection,
         const char *url,
         const char *method, const char *version,
         const char *upload_data,
         size_t *upload_data_size, void **con_cls) {
 
     tn_http_t *self = (tn_http_t *) cls;
+    struct MHD_Response *response = NULL;
+    struct stat tmp_stat;
+    unsigned int status_code = MHD_HTTP_OK;
+    int tmp_fd = -1;
+    char *static_filename = NULL;
+    const char *mime_str = NULL;
+    size_t static_filename_sz = 0;
 
-    syslog(LOG_DEBUG, "Root requested");
+    syslog(LOG_DEBUG, "Static or other requested: %s", url);
 
-    return MHD_queue_response(connection, MHD_HTTP_OK, self->root_response);
+    if (strcmp("/", url)) {
+        url = "/index.html";
+    }
+
+    static_filename_sz = strlen(STATIC_RES_FORMAT) + strlen(url) + 1;
+    static_filename = malloc(static_filename_sz);
+    snprintf(static_filename, static_filename_sz, STATIC_RES_FORMAT, url);
+
+    if (tmp_fd = open(url, O_RDONLY) >= 0 && fstat(tmp_fd, &tmp_stat) >= 0) {
+        response = MHD_create_response_from_fd(tmp_stat.st_size, tmp_fd);
+        mime_str = magic_file(self->magic, url);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, mime_str);
+    } else if (tmp_fd >= 0) {
+        status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+        response = MHD_create_response_from_buffer(strlen("Internal Server Error"), "Internal Server Error", MHD_RESPMEM_MUST_COPY);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
+    } else {
+        status_code = MHD_HTTP_NOT_FOUND;
+        response = MHD_create_response_from_buffer(strlen("Not Found"), "Not Found", MHD_RESPMEM_MUST_COPY);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
+    }
+
+    return MHD_queue_response(connection, status_code, response);
 }
 
 static enum MHD_Result _handle_log_offset_arg(void *cls,
@@ -458,9 +481,6 @@ enum MHD_Result tn_http_handle_request(void *cls, struct MHD_Connection *conn,
     if (strcmp("/status", url) == 0) {
         ret = _handle_status(cls, conn, url, method, version,
                 upload_data, upload_data_size, con_cls);
-    } else if (strcmp("/", url) == 0) {
-        ret = _handle_root(cls, conn, url, method, version,
-                upload_data, upload_data_size, con_cls);
     } else if (strcmp("/log", url) == 0) {
         ret = _handle_log(cls, conn, url, method, version,
                 upload_data, upload_data_size, con_cls);
@@ -476,35 +496,35 @@ enum MHD_Result tn_http_handle_request(void *cls, struct MHD_Connection *conn,
     } else if (strncmp(LIBRARY_URL_PATH, url, strlen(LIBRARY_URL_PATH)) == 0) {
         ret = _handle_playlist(cls, conn, url, method, version,
                 upload_data, upload_data_size, con_cls);
+    } else {
+        ret = _handle_static(cls, conn, url, method, version,
+                upload_data, upload_data_size, con_cls);
     }
 
     return ret;
 }
 
 tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg) {
-    struct stat index_stat;
     tn_http_t *self = malloc(sizeof (tn_http_t));
     P_CHECK(self, goto http_init_cleanup);
     self->media = media;
     self->selected_card_id = selected_card_id;
     self->library_root = cfg_getstr(cfg, CFG_MEDIA_ROOT);
     self->library_root_len = strlen(self->library_root);
-    self->root_response = NULL;
     self->cfg = cfg;
+
+
+    self->magic = magic_open(MAGIC_MIME_TYPE);
+    magic_load(self->magic, NULL);
+    magic_compile(self->magic, NULL);
+
+    self->internet_connected = false;
 
     self->mhd_daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD | MHD_USE_DUAL_STACK,
             PORT, NULL, NULL,
             &tn_http_handle_request, self,
             MHD_OPTION_END);
     P_CHECK(self->mhd_daemon, goto http_init_cleanup);
-
-    int index_fd = open(INDEX_HTML_PATH, O_RDONLY);
-    I_CHECK(index_fd, goto http_init_cleanup);
-    I_CHECK(fstat(index_fd, &index_stat), goto http_init_cleanup);
-
-    self->root_response = MHD_create_response_from_fd(index_stat.st_size, index_fd);
-    MHD_add_response_header(self->root_response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_HTML);
-
 
     syslog(LOG_INFO, "HTTP Initialized on port %d", PORT);
     return self;
@@ -515,7 +535,7 @@ http_init_cleanup:
 }
 
 void tn_http_stop(tn_http_t *self) {
-    MHD_destroy_response(self->root_response);
     MHD_stop_daemon(self->mhd_daemon);
+    magic_close(self->magic);
     free(self);
 }

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Tonio</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="./tonio.css" rel="stylesheet" type="text/css">
+
+        <script src="./tonio.js"></script>
+
+    </head>
+    <body>
+        <ul class="menu">
+            <li onclick="stage('status');"><a id="status-href" href="#status">Status</a></li>
+            <li onclick="stage('library');"><a id="library-href" href="#library">Library</a></li>
+            <li onclick="stage('settings');"><a id="settings-href" href="#settings">Settings</a></li>
+            <li onclick="stage('log');"><a id="log-href" href="#log">Log</a></li>
+            <li onclick="stage('about');" style="float:right"><a id="about-href" href="#about">About</a></li>
+        </ul>
+
+        <div id="status-stage" class="stage">
+            <table>
+                <tr><td>Current tag:</td><td class="status-item" id="current-tag"></td></tr>
+                <tr><td>Current track:</td><td class="status-item" id="current-track"></td></tr>
+                <tr><td>Total tracks:</td><td class="status-item" id="total-tracks"></td></tr>
+                <tr><td>Current Track Resource:</td><td class="status-item" id="current-track-res"></td></tr>
+                <tr><td>Internet:</td><td class="status-item"><span id="inet-connected">connected</span><span id="inet-disconnected">disconnected</span></td></tr>
+            </table>
+        </div>
+
+        <div id="log-stage" class="stage log"></div>
+
+        <div id="library-stage" class="stage">
+            <template id="playlist-title"><h4>Playlist title</h4></template>
+            <template id="playlist-container"><table style="display: none"></table></template>
+            <template id="item-container"><tr></tr></template>
+            <template id="remove-button"><td class="button track-del">&#10006;</td></template>
+            <template id="up-button"><td class="button track-up">&#x2bc5;</td></template>
+            <template id="down-button"><td class="button track-down">&#x2bc6;</td></template>
+            <template id="no-button"><td></td></template>
+            <template id="item-resource"><td></td></template>
+
+        </div>
+
+        <div id="settings-stage" class="stage">
+
+
+            <form action="/settings" method="POST" id="settings-form">
+                <table>
+                    <tr><td colspan="2"><h4>Networking</h4></td></tr>
+                    <tr><td>Wireless network:</td><td><select name="iwlist" id="iwlist"></select><span id="iwlist-reload" class="disabled">&#x27f3;</span></td></tr>
+                    <tr><td>Wireless password:</td><td><input type="password" id="iwpass" name="iwpass"></td></tr>
+                </table>
+
+                <table>
+                    <tr><td colspan="2"><h4>Advanced settings</h4></td></tr>
+                    <tr><td>GPIOD chip name:</td><td><input type="text" id="gpio-chip-name" name="gpio-chip-name"></td></tr>
+                    <tr><td>Previous track gpio pin:</td><td><input type="number" id="gpio-prev" name="gpio-prev" min="0" max="30"></td></tr>
+                    <tr><td>Next track gpio pin:</td><td><input type="number" id="gpio-next" name="gpio-next" min="0" max="30"></td></tr>
+                    <tr><td>Volume up gpio pin:</td><td><input type="number" id="gpio-volup" name="gpio-volup" min="0" max="30"></td></tr>
+                    <tr><td>Volume down gpio pin:</td><td><input type="number" id="gpio-voldown" name="gpio-voldown" min="0" max="30"></td></tr>
+                    <tr><td>RFID Reader SPI device:</td><td><input type="text" id="spi-dev" name="spi-dev"></td></tr>
+
+                    <tr><td></td><td><input type="submit" value="Apply settings" /></td></tr>
+                </table>
+            </form>
+
+        </div>
+
+        <div id="about-stage" class="stage">
+            <p>Tonio is the free juke-box software for children and beyond</p>
+            <p>For more information, please reach the project web site at <a href="https://github.com/comick/tonio/">https://github.com/comick/tonio/</a>.</p>           
+        </div>
+    </body>
+</html>
