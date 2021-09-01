@@ -27,7 +27,6 @@
 #include <iwlib.h>
 #include <microhttpd.h>
 #include <confuse.h>
-#include <magic.h>
 
 #include "http.h"
 #include "tonio.h"
@@ -35,8 +34,19 @@
 
 #define STATIC_RES_FORMAT "/usr/share/tonio/www%s"
 
-#define MIME_JSON "application/json"
+#define MIME_APPLICATION_JSON "application/json"
 #define MIME_TEXT_PLAIN "text/plain"
+#define MIME_APPLICATION_JAVASCRIPT "application/javascript"
+#define MIME_TEXT_CSS "text/css"
+#define MIME_TEXT_HTML "text/html"
+
+#define FILE_EXT_JS ".js"
+#define FILE_EXT_CSS ".css"
+#define FILE_EXT_HTML ".html"
+
+#define FILE_EXT_JS_LEN strlen(FILE_EXT_JS)
+#define FILE_EXT_CSS_LEN strlen(FILE_EXT_CSS)
+#define FILE_EXT_HTML_LEN strlen(FILE_EXT_HTML)
 
 #define JSON_TRUE "true"
 #define JSON_FALSE "false"
@@ -56,8 +66,6 @@ struct tn_http {
     tn_media_t *media;
     cfg_t *cfg;
     uint8_t *selected_card_id;
-
-    magic_t magic;
 };
 
 static int _handle_status(void *cls, struct MHD_Connection *connection,
@@ -97,11 +105,25 @@ static int _handle_status(void *cls, struct MHD_Connection *connection,
             (void*) page, MHD_RESPMEM_MUST_FREE);
     P_CHECK(response, return MHD_NO);
 
-    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_JSON);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_APPLICATION_JSON);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);
 
     return ret;
+}
+
+static enum MHD_Result _process_settings(void *cls,
+        enum MHD_ValueKind kind,
+        const char *key,
+        const char *filename,
+        const char *content_type,
+        const char *transfer_encoding,
+        const char *data,
+        uint64_t off,
+        size_t size) {
+    cfg_t *cfg = (cfg_t *) cls;
+    // TODO if key == cose, then use data to populate cfg.
+    return MHD_YES;
 }
 
 static int _handle_settings(void *cls, struct MHD_Connection *connection,
@@ -115,8 +137,12 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
 
     tn_http_t *self = (tn_http_t *) cls;
 
-    if (strcmp(method, "POST")) {
-        // TODO read new config values from form data , add to cfg and:
+    if (strcmp(method, MHD_HTTP_METHOD_POST)) {
+
+        struct MHD_PostProcessor *pp = MHD_create_post_processor(connection, 1024, _process_settings, self->cfg);
+        MHD_post_process(pp, upload_data, *upload_data_size);
+        MHD_destroy_post_processor(pp);
+
         FILE *cfg_fp = fopen(self->cfg->filename, "w");
         P_CHECK(cfg_fp, return MHD_NO);
         I_CHECK(cfg_print(self->cfg, cfg_fp), return MHD_NO);
@@ -148,7 +174,7 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
             (void*) page, MHD_RESPMEM_MUST_FREE);
     P_CHECK(response, return MHD_NO);
 
-    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_JSON);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_APPLICATION_JSON);
 
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);
@@ -168,7 +194,7 @@ static int _handle_static(void *cls, struct MHD_Connection *connection,
     unsigned int status_code = MHD_HTTP_OK;
     int tmp_fd = -1;
     char *static_filename = NULL;
-    const char *mime_str = NULL;
+    char *mime_str = MIME_TEXT_PLAIN;
     size_t static_filename_sz = 0;
 
     syslog(LOG_DEBUG, "Static or other requested: %s", url);
@@ -181,20 +207,27 @@ static int _handle_static(void *cls, struct MHD_Connection *connection,
     static_filename = malloc(static_filename_sz);
     snprintf(static_filename, static_filename_sz, STATIC_RES_FORMAT, url);
 
+    size_t url_len = strlen(url);
+
     if (tmp_fd = open(url, O_RDONLY) >= 0 && fstat(tmp_fd, &tmp_stat) >= 0) {
+        // some simple ext matching to mimetype. libmagic whilea better solution is too big.
+        if (url_len > FILE_EXT_HTML_LEN && strncmp(url + url_len - FILE_EXT_HTML_LEN, FILE_EXT_HTML, FILE_EXT_HTML_LEN)) {
+            mime_str = MIME_TEXT_HTML;
+        } else if (url_len > FILE_EXT_CSS_LEN && strncmp(url + url_len - FILE_EXT_CSS_LEN, FILE_EXT_CSS, FILE_EXT_CSS_LEN)) {
+            mime_str = MIME_TEXT_CSS;
+        } else if (url_len > FILE_EXT_JS_LEN && strncmp(url + url_len - FILE_EXT_JS_LEN, FILE_EXT_JS, FILE_EXT_JS_LEN)) {
+            mime_str = MIME_APPLICATION_JAVASCRIPT;
+        }
         response = MHD_create_response_from_fd(tmp_stat.st_size, tmp_fd);
-        mime_str = magic_file(self->magic, url);
-        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, mime_str);
     } else if (tmp_fd >= 0) {
         status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
         response = MHD_create_response_from_buffer(strlen("Internal Server Error"), "Internal Server Error", MHD_RESPMEM_MUST_COPY);
-        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
     } else {
         status_code = MHD_HTTP_NOT_FOUND;
         response = MHD_create_response_from_buffer(strlen("Not Found"), "Not Found", MHD_RESPMEM_MUST_COPY);
-        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
     }
 
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, mime_str);
     return MHD_queue_response(connection, status_code, response);
 }
 
@@ -424,7 +457,7 @@ static int _handle_library(void *cls, struct MHD_Connection *connection,
 
     response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11, _library_tags_json, sts, _library_tags_json_free);
     P_CHECK(response, return MHD_NO);
-    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_JSON);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_APPLICATION_JSON);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);
 
@@ -513,11 +546,6 @@ tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg
     self->library_root_len = strlen(self->library_root);
     self->cfg = cfg;
 
-
-    self->magic = magic_open(MAGIC_MIME_TYPE);
-    magic_load(self->magic, NULL);
-    magic_compile(self->magic, NULL);
-
     self->internet_connected = false;
 
     self->mhd_daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD | MHD_USE_DUAL_STACK,
@@ -536,6 +564,5 @@ http_init_cleanup:
 
 void tn_http_stop(tn_http_t *self) {
     MHD_stop_daemon(self->mhd_daemon);
-    magic_close(self->magic);
     free(self);
 }

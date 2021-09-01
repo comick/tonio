@@ -7,6 +7,5 @@ menuconfig BR2_PACKAGE_TONIO
     select BR2_PACKAGE_VLC
     select BR2_PACKAGE_HOST_PKGCONF
     select BR2_PACKAGE_LIBCONFUSE
-    select BR2_PACKAGE_FILE
     help
         Tonio is the free juke-box software for children and beyond!
