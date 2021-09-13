@@ -57,6 +57,14 @@
 
 #define LIBRARY_URL_PATH "/library"
 
+#define CFG_SETINT(K) if (strcmp(key, K)) { \
+    cfg_setint(cfg, K, atoi(data)); \
+}
+
+#define CFG_SETSTR(K) if (strcmp(key, K)) { \
+    cfg_setstr(cfg, K, data); \
+}
+
 struct tn_http {
     char *library_root;
     size_t library_root_len;
@@ -122,7 +130,15 @@ static enum MHD_Result _process_settings(void *cls,
         uint64_t off,
         size_t size) {
     cfg_t *cfg = (cfg_t *) cls;
-    // TODO if key == cose, then use data to populate cfg.
+
+    CFG_SETINT(CFG_BTN_TRACK_PREVIOUS);
+    CFG_SETINT(CFG_BTN_TRACK_NEXT);
+    CFG_SETINT(CFG_BTN_VOLUME_UP);
+    CFG_SETINT(CFG_BTN_VOLUME_DOWN);
+    CFG_SETINT(CFG_MFRC522_SWITCH);
+    CFG_SETSTR(CFG_MFRC522_SPI_DEV);
+    CFG_SETSTR(CFG_GPIOD_CHIP_NAME);
+    
     return MHD_YES;
 }
 
@@ -138,15 +154,21 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     tn_http_t *self = (tn_http_t *) cls;
 
     if (strcmp(method, MHD_HTTP_METHOD_POST)) {
+        struct MHD_PostProcessor *pp = *con_cls;
+        if (pp == NULL) {
+            pp = MHD_create_post_processor(connection, 1024, _process_settings, self->cfg);
+            P_CHECK(pp, return MHD_NO);
+            return MHD_YES;
+        } else if (*upload_data_size > 0) {
+            return MHD_post_process(pp, upload_data, *upload_data_size);
+        } else {
+            MHD_destroy_post_processor(pp);
 
-        struct MHD_PostProcessor *pp = MHD_create_post_processor(connection, 1024, _process_settings, self->cfg);
-        MHD_post_process(pp, upload_data, *upload_data_size);
-        MHD_destroy_post_processor(pp);
-
-        FILE *cfg_fp = fopen(self->cfg->filename, "w");
-        P_CHECK(cfg_fp, return MHD_NO);
-        I_CHECK(cfg_print(self->cfg, cfg_fp), return MHD_NO);
-        I_CHECK(fclose(cfg_fp), return MHD_NO);
+            FILE *cfg_fp = fopen(self->cfg->filename, "w");
+            P_CHECK(cfg_fp, return MHD_NO);
+            I_CHECK(cfg_print(self->cfg, cfg_fp), return MHD_NO);
+            I_CHECK(fclose(cfg_fp), return MHD_NO);
+        }
     }
 
     char *page = "";
@@ -170,8 +192,7 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     page = malloc(page_len + 1);
     snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid, pin_prev, pin_next, pin_vol_up, pin_vol_down, pin_rfid, spi_dev, gpio_chip);
 
-    response = MHD_create_response_from_buffer(page_len,
-            (void*) page, MHD_RESPMEM_MUST_FREE);
+    response = MHD_create_response_from_buffer(page_len, (void*) page, MHD_RESPMEM_MUST_FREE);
     P_CHECK(response, return MHD_NO);
 
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_APPLICATION_JSON);
