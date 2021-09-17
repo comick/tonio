@@ -10,9 +10,13 @@ env:
   buildroot-version: 2021.02.4
 
 jobs:
-  RPi3:
+  build:
 
     runs-on: ubuntu-20.04
+    
+    strategy:
+        matrix:
+            config: [raspberrypi3, raspberrypi0w]
 
     steps:
         
@@ -22,7 +26,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/.buildroot-ccache
-        key: buildroot-raspberrypi3-ccache
+        key: buildroot-${{ matrix.config }}-ccache
     
     - name: Setup Buildroot downloads cache
       uses: actions/cache@v2
@@ -41,13 +45,13 @@ jobs:
       run: |
         cd buildroot-${{ env.buildroot-version }}
         export BR2_DL_DIR=~/.buildroot-dl
-        make BR2_EXTERNAL=../ tonio_raspberrypi3_defconfig
+        make BR2_EXTERNAL=../ tonio_${{ matrix.config }}_defconfig
         make
     
     - name: Upload Images
       uses: actions/upload-artifact@v2
       with:
-        name: Raspberry Pi 3 Images
+        name: ${{ matrix.config }} images
         path: 'buildroot-${{ env.buildroot-version }}/output/images'
                 
     - name: Build Graphs
@@ -60,58 +64,6 @@ jobs:
     - name: Upload Graphs
       uses: actions/upload-artifact@v2
       with:
-        name: Raspberry Pi 3 Graphs
+        name: ${{ matrix.config }} graphs
         path: 'buildroot-${{ env.buildroot-version }}/output/graphs'
 
-  RPi0w:
-
-    runs-on: ubuntu-20.04
-
-    steps:
-        
-    - uses: actions/checkout@v2
-            
-    - name: Setup Buildroot ccache
-      uses: actions/cache@v2
-      with:
-        path: ~/.buildroot-ccache
-        key: buildroot-raspberrypi0w-ccache
-    
-    - name: Setup Buildroot downloads cache
-      uses: actions/cache@v2
-      with:
-        path: ~/.buildroot-dl
-        key: buildroot-dl
-        
-    - name: Prepare environment
-      run: |
-        wget https://buildroot.org/downloads/buildroot-${{ env.buildroot-version }}.tar.gz
-        tar xzf buildroot-${{ env.buildroot-version }}.tar.gz
-        sudo apt-get update
-        sudo apt-get install graphviz python3-matplotlib
-        
-    - name: Build Images
-      run: |
-        cd buildroot-${{ env.buildroot-version }}
-        export BR2_DL_DIR=~/.buildroot-dl
-        make BR2_EXTERNAL=../ tonio_raspberrypi0w_defconfig
-        make
-    
-    - name: Upload Images
-      uses: actions/upload-artifact@v2
-      with:
-        name: Raspberry Pi Zero W Images
-        path: 'buildroot-${{ env.buildroot-version }}/output/images'
-                
-    - name: Build Graphs
-      run: |
-        cd buildroot-${{ env.buildroot-version }}
-        make graph-size
-        make graph-depends
-        make graph-build
-
-    - name: Upload Graphs
-      uses: actions/upload-artifact@v2
-      with:
-        name: Raspberry Pi Zero W Graphs
-        path: 'buildroot-${{ env.buildroot-version }}/output/graphs'
