@@ -28,3 +28,11 @@ define TONIO_INSTALL_INIT_SYSV
 endef
 
 $(eval $(generic-package))
+
+tonio-sync:
+	ssh root@tonio.local '/etc/init.d/S15tonio stop'
+	scp $(@D)/www/index.html root@tonio.local:/usr/share/tonio/www/index.html
+	scp $(@D)/www/tonio.css root@tonio.local:/usr/share/tonio/www/tonio.css
+	scp $(@D)/www/tonio.js root@tonio.local:/usr/share/tonio/www/tonio.js
+	scp $(TARGET_DIR)/usr/bin/tonio root@tonio.local:/usr/bin/tonio
+	ssh root@tonio.local '/etc/init.d/S15tonio start'
