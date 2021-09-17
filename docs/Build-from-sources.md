@@ -26,14 +26,25 @@ INFO: hdimage(sdcard.img): adding partition 'library' (in MBR) from 'library.vfa
 INFO: hdimage(sdcard.img): writing MBR
 ```
 
-That means your build is done.
+That means your build is done and an image is ready for flashing you SD card. 
 
 Writing image to an SD card
 ---------------------------
 
-Root image was built successfully and you SD card image is ready.
-First find out your SD card device file, say /dev/sdX, then:
+Make sure you have parted installed, then flash your SD card with:
 
-```$ sudo dd if output/sdcard.img of=/dev/sdX && sync```
+```
+$ make flash dev=/dev/sdX
+```
+
+that will write the image on your SD card and extend the FAT data partition till the end.
+
+This may take some time (specially if you made an image with non-empty library). During development you may just want to flash the root partition with:
+
+```
+$ make flash-light dev=/dev/sdX
+```
+
+which will only flash the much smaller root file system.
 
 Plug you SD card into the board and switch the device on.
