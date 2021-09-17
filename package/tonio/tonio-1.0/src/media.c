@@ -202,7 +202,7 @@ static int _apply_saved_position(tn_media_t *self, libvlc_media_player_t * media
 
 static void _save_stream_positions_onchange(const struct libvlc_event_t *event, void *data) {
     tn_media_t *self = (tn_media_t *) data;
-  
+
     _save_stream_positions(self, true);
 }
 

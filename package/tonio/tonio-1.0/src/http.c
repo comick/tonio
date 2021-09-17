@@ -220,7 +220,7 @@ static int _handle_static(void *cls, struct MHD_Connection *connection,
 
     syslog(LOG_DEBUG, "Static or other requested: %s", url);
 
-    if (strcmp("/", url)) {
+    if (strcmp("/", url) == 0) {
         url = "/index.html";
     }
 
@@ -230,7 +230,7 @@ static int _handle_static(void *cls, struct MHD_Connection *connection,
 
     size_t url_len = strlen(url);
 
-    if (tmp_fd = open(url, O_RDONLY) >= 0 && fstat(tmp_fd, &tmp_stat) >= 0) {
+    if (tmp_fd = open(static_filename, O_RDONLY) >= 0 && fstat(tmp_fd, &tmp_stat) >= 0) {
         // some simple ext matching to mimetype. libmagic whilea better solution is too big.
         if (url_len > FILE_EXT_HTML_LEN && strncmp(url + url_len - FILE_EXT_HTML_LEN, FILE_EXT_HTML, FILE_EXT_HTML_LEN)) {
             mime_str = MIME_TEXT_HTML;
@@ -240,12 +240,14 @@ static int _handle_static(void *cls, struct MHD_Connection *connection,
             mime_str = MIME_APPLICATION_JAVASCRIPT;
         }
         response = MHD_create_response_from_fd(tmp_stat.st_size, tmp_fd);
-    } else if (tmp_fd >= 0) {
-        status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
-        response = MHD_create_response_from_buffer(strlen("Internal Server Error"), "Internal Server Error", MHD_RESPMEM_MUST_COPY);
-    } else {
+    } else if (tmp_fd < 0 && errno == EACCES) {
+        syslog(LOG_INFO, "Resource requested but not found at %s (%s)", url, static_filename);
         status_code = MHD_HTTP_NOT_FOUND;
         response = MHD_create_response_from_buffer(strlen("Not Found"), "Not Found", MHD_RESPMEM_MUST_COPY);
+    } else {
+        syslog(LOG_ERR, "Could not serve %s (static resource %s): %s %d", url, static_filename, strerror(errno), tmp_fd);
+        status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+        response = MHD_create_response_from_buffer(strlen("Internal Server Error"), "Internal Server Error", MHD_RESPMEM_MUST_COPY);
     }
 
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, mime_str);
@@ -569,7 +571,7 @@ tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg
 
     self->internet_connected = false;
 
-    self->mhd_daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD | MHD_USE_DUAL_STACK,
+    self->mhd_daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD,
             PORT, NULL, NULL,
             &tn_http_handle_request, self,
             MHD_OPTION_END);
