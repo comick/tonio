@@ -31,8 +31,8 @@ $(eval $(generic-package))
 
 tonio-deploy: tonio-rebuild
 	ssh root@tonio.local '/etc/init.d/S15tonio stop'
-	scp $(BR2_EXTERNAL_TONIO_PATH)/package/tonio/tonio-1.0/www/index.html root@tonio.local:/usr/share/tonio/www/index.html
-	scp $(BR2_EXTERNAL_TONIO_PATH)/package/tonio/tonio-1.0/www/tonio.css root@tonio.local:/usr/share/tonio/www/tonio.css
-	scp $(BR2_EXTERNAL_TONIO_PATH)/package/tonio/tonio-1.0/www/tonio.js root@tonio.local:/usr/share/tonio/www/tonio.js
+	scp $(TONIO_SITE)/www/index.html root@tonio.local:/usr/share/tonio/www/index.html
+	scp $(TONIO_SITE)/www/tonio.css root@tonio.local:/usr/share/tonio/www/tonio.css
+	scp $(TONIO_SITE)/www/tonio.js root@tonio.local:/usr/share/tonio/www/tonio.js
 	scp $(TARGET_DIR)/usr/bin/tonio root@tonio.local:/usr/bin/tonio
 	ssh root@tonio.local '/etc/init.d/S15tonio start'
