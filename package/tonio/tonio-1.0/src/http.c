@@ -32,7 +32,7 @@
 #include "tonio.h"
 #include "media.h"
 
-#define STATIC_RES_FORMAT "/usr/share/tonio/www%s"
+#define STATIC_RES_ROOT "/usr/share/tonio/www"
 
 #define MIME_APPLICATION_JSON "application/json"
 #define MIME_TEXT_PLAIN "text/plain"
@@ -153,7 +153,7 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
 
     tn_http_t *self = (tn_http_t *) cls;
 
-    if (strcmp(method, MHD_HTTP_METHOD_POST)) {
+    if (strcmp(method, MHD_HTTP_METHOD_POST) == 0) {
         struct MHD_PostProcessor *pp = *con_cls;
         if (pp == NULL) {
             pp = MHD_create_post_processor(connection, 1024, _process_settings, self->cfg);
@@ -224,19 +224,21 @@ static int _handle_static(void *cls, struct MHD_Connection *connection,
         url = "/index.html";
     }
 
-    static_filename_sz = strlen(STATIC_RES_FORMAT) + strlen(url) + 1;
-    static_filename = malloc(static_filename_sz);
-    snprintf(static_filename, static_filename_sz, STATIC_RES_FORMAT, url);
-
     size_t url_len = strlen(url);
+    
+    static_filename_sz = strlen(STATIC_RES_ROOT) + url_len + 1;
+    static_filename = malloc(static_filename_sz);
+    snprintf(static_filename, static_filename_sz, "%s%s", STATIC_RES_ROOT, url);
 
-    if (tmp_fd = open(static_filename, O_RDONLY) >= 0 && fstat(tmp_fd, &tmp_stat) >= 0) {
-        // some simple ext matching to mimetype. libmagic whilea better solution is too big.
-        if (url_len > FILE_EXT_HTML_LEN && strncmp(url + url_len - FILE_EXT_HTML_LEN, FILE_EXT_HTML, FILE_EXT_HTML_LEN)) {
+    tmp_fd = open(static_filename, O_RDONLY);
+    
+    if (tmp_fd >= 0 && fstat(tmp_fd, &tmp_stat) >= 0) {
+        // some simple ext matching to mimetype. libmagic, while a better solution is too big.
+        if (url_len > FILE_EXT_HTML_LEN && strncmp(url + url_len - FILE_EXT_HTML_LEN, FILE_EXT_HTML, FILE_EXT_HTML_LEN) == 0) {
             mime_str = MIME_TEXT_HTML;
-        } else if (url_len > FILE_EXT_CSS_LEN && strncmp(url + url_len - FILE_EXT_CSS_LEN, FILE_EXT_CSS, FILE_EXT_CSS_LEN)) {
+        } else if (url_len > FILE_EXT_CSS_LEN && strncmp(url + url_len - FILE_EXT_CSS_LEN, FILE_EXT_CSS, FILE_EXT_CSS_LEN) == 0) {
             mime_str = MIME_TEXT_CSS;
-        } else if (url_len > FILE_EXT_JS_LEN && strncmp(url + url_len - FILE_EXT_JS_LEN, FILE_EXT_JS, FILE_EXT_JS_LEN)) {
+        } else if (url_len > FILE_EXT_JS_LEN && strncmp(url + url_len - FILE_EXT_JS_LEN, FILE_EXT_JS, FILE_EXT_JS_LEN) == 0) {
             mime_str = MIME_APPLICATION_JAVASCRIPT;
         }
         response = MHD_create_response_from_fd(tmp_stat.st_size, tmp_fd);
