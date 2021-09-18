@@ -415,8 +415,9 @@ static tn_media_position_t *_save_stream_positions(tn_media_t *self) {
     media_pos->media_idx = curr_i;
     media_pos->media_pos = curr_pos;
 
-    char *tmp_file_name = malloc(strlen(self->tmp_positions_filepath_tpl));
+    char *tmp_file_name = malloc(strlen(self->tmp_positions_filepath_tpl) + 1);
     tmp_file_name = strcpy(tmp_file_name, self->tmp_positions_filepath_tpl);
+    
     tmp_fd = mkstemp(tmp_file_name);
     I_CHECK(tmp_fd, goto save_pos_clean);
     
