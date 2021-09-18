@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <ctype.h>
+#include <string.h>
 
 #include "uthash.h"
 
@@ -42,6 +43,7 @@
 #define PLAYLIST_SUFFIX ".m3u"
 #define PLAYLIST_SUFFIX_LEN (strlen(PLAYLIST_SUFFIX))
 
+#define POS_SAVE_FILE_TEMPLATE ".tonio.dat.XXXXXX"
 #define POS_SAVE_FILE ".tonio.dat"
 
 typedef struct {
@@ -62,6 +64,7 @@ struct tn_media {
     snd_mixer_t *mixer;
     snd_mixer_elem_t* mixer_elem;
     char *positions_filepath;
+    char *tmp_positions_filepath_tpl;
     float volume_max;
     sem_t pos_file_mutex;
 };
@@ -87,9 +90,9 @@ tn_media_t *tn_media_init(cfg_t *cfg) {
     self->mixer_elem = NULL;
     self->positions_filepath = NULL;
     self->volume_max = cfg_getfloat(cfg, CFG_VOLUME_MAX);
-  
+
     sem_init(&self->pos_file_mutex, 0, 1);
-    
+
     // libvlc for playback
     const char *vlc_args[] = {
         "-I", "dummy", "--aout", AUDIO_OUTPUT
@@ -115,12 +118,16 @@ tn_media_t *tn_media_init(cfg_t *cfg) {
 
     // Loading stream positions from file.
     size_t buf_len = strlen(self->media_root) + strlen(POS_SAVE_FILE) + 1;
-    char *positions_filepath = malloc(buf_len);
-    strcpy(positions_filepath, self->media_root);
-    strcat(positions_filepath, POS_SAVE_FILE);
-    self->positions_filepath = positions_filepath;
+    self->positions_filepath = malloc(buf_len);
+    strcpy(self->positions_filepath, self->media_root);
+    strcat(self->positions_filepath, POS_SAVE_FILE);
+    
+    buf_len = strlen(self->media_root) + strlen(POS_SAVE_FILE_TEMPLATE) + 1;
+    self->tmp_positions_filepath_tpl = malloc(buf_len);
+    strcpy(self->tmp_positions_filepath_tpl, self->media_root);
+    strcat(self->tmp_positions_filepath_tpl, POS_SAVE_FILE_TEMPLATE);
 
-    FILE *positions_file = fopen(positions_filepath, "r");
+    FILE *positions_file = fopen(self->positions_filepath, "r");
     if (positions_file != NULL) {
         int i = 0;
 
@@ -206,10 +213,9 @@ static void _save_stream_positions_onchange(const struct libvlc_event_t *event, 
 
     tn_media_position_t *media_pos = NULL;
     HASH_FIND_INT(self->media_positions, &(self->curr_card_id), media_pos);
-    
+
     if (media_pos != NULL && now.tv_sec - media_pos->time_saved.tv_sec >= 2) {
-        // TODO enable back when wal is enabled for state file.
-        //_save_stream_positions(self);
+        _save_stream_positions(self);
     }
 
 }
@@ -378,6 +384,7 @@ static tn_media_position_t *_save_stream_positions(tn_media_t *self) {
 
     libvlc_media_player_t *curr_media_player = NULL;
     libvlc_media_t *curr_media = NULL;
+    int tmp_fd = -1;
     int curr_i;
     float curr_pos;
 
@@ -408,17 +415,12 @@ static tn_media_position_t *_save_stream_positions(tn_media_t *self) {
     media_pos->media_idx = curr_i;
     media_pos->media_pos = curr_pos;
 
-    // Writing out all stream positions to file.
-    // TODO for extra reliability, in the unlikely case when board is switched off while writing.
-    // 1. write to backup file
-    // 1.1 rename on done
-    // 2. copy to main file
-    // 3. remove backup file
-    // On read, if backup file is there (corruption occurred), use it and do step 2 and 3.
-
-    sem_wait(&self->pos_file_mutex);
+    char *tmp_file_name = malloc(strlen(self->tmp_positions_filepath_tpl));
+    tmp_file_name = strcpy(tmp_file_name, self->tmp_positions_filepath_tpl);
+    tmp_fd = mkstemp(tmp_file_name);
+    I_CHECK(tmp_fd, goto save_pos_clean);
     
-    FILE *positions_file = fopen(self->positions_filepath, "w");
+    FILE *positions_file = fdopen(tmp_fd, "w");
     P_CHECK(positions_file, syslog(LOG_ERR, "Cannot write positions file: %s", self->positions_filepath); goto save_pos_clean);
     tn_media_position_t * nxt = self->media_positions;
     int i = 0;
@@ -431,14 +433,17 @@ static tn_media_position_t *_save_stream_positions(tn_media_t *self) {
     }
     fflush(positions_file);
     fclose(positions_file);
-    
+
+    sem_wait(&self->pos_file_mutex);
+    I_CHECK(rename(tmp_file_name, self->positions_filepath), goto save_pos_clean);
     sem_post(&self->pos_file_mutex);
-    
+
     syslog(LOG_INFO, "Saved %d stream positions at %s", i, self->positions_filepath);
 
 save_pos_clean:
     if (curr_media_player != NULL) libvlc_media_player_release(curr_media_player);
     if (curr_media != NULL) libvlc_media_release(curr_media);
+    unlink(tmp_file_name);
 
     return media_pos;
 }
