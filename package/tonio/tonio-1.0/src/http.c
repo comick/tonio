@@ -57,12 +57,12 @@
 
 #define LIBRARY_URL_PATH "/library"
 
-#define CFG_SETINT(K) if (strcmp(key, K)) { \
-    cfg_setint(cfg, K, atoi(data)); \
+#define CFG_SETINT(K) if (strcmp(key, K) == 0) { \
+    cfg_setint(cfg, K, atol(d)); \
 }
 
-#define CFG_SETSTR(K) if (strcmp(key, K)) { \
-    cfg_setstr(cfg, K, data); \
+#define CFG_SETSTR(K) if (strcmp(key, K) == 0) { \
+    cfg_setstr(cfg, K, d); \
 }
 
 struct tn_http {
@@ -130,7 +130,11 @@ static enum MHD_Result _process_settings(void *cls,
         uint64_t off,
         size_t size) {
     cfg_t *cfg = (cfg_t *) cls;
-
+    
+    char d[size + 1];
+    strncpy(&d, data + off, size);
+    d[size] = 0;
+    
     CFG_SETINT(CFG_BTN_TRACK_PREVIOUS);
     CFG_SETINT(CFG_BTN_TRACK_NEXT);
     CFG_SETINT(CFG_BTN_VOLUME_UP);
@@ -138,7 +142,7 @@ static enum MHD_Result _process_settings(void *cls,
     CFG_SETINT(CFG_MFRC522_SWITCH);
     CFG_SETSTR(CFG_MFRC522_SPI_DEV);
     CFG_SETSTR(CFG_GPIOD_CHIP_NAME);
-    
+
     return MHD_YES;
 }
 
@@ -158,9 +162,14 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
         if (pp == NULL) {
             pp = MHD_create_post_processor(connection, 1024, _process_settings, self->cfg);
             P_CHECK(pp, return MHD_NO);
+            *con_cls = pp;
             return MHD_YES;
-        } else if (*upload_data_size > 0) {
-            return MHD_post_process(pp, upload_data, *upload_data_size);
+        }
+
+        if (*upload_data_size > 0) {
+            MHD_post_process(pp, upload_data, *upload_data_size);
+            *upload_data_size = 0;
+            return MHD_YES;
         } else {
             MHD_destroy_post_processor(pp);
 
@@ -225,13 +234,13 @@ static int _handle_static(void *cls, struct MHD_Connection *connection,
     }
 
     size_t url_len = strlen(url);
-    
+
     static_filename_sz = strlen(STATIC_RES_ROOT) + url_len + 1;
     static_filename = malloc(static_filename_sz);
     snprintf(static_filename, static_filename_sz, "%s%s", STATIC_RES_ROOT, url);
 
     tmp_fd = open(static_filename, O_RDONLY);
-    
+
     if (tmp_fd >= 0 && fstat(tmp_fd, &tmp_stat) >= 0) {
         // some simple ext matching to mimetype. libmagic, while a better solution is too big.
         if (url_len > FILE_EXT_HTML_LEN && strncmp(url + url_len - FILE_EXT_HTML_LEN, FILE_EXT_HTML, FILE_EXT_HTML_LEN) == 0) {
