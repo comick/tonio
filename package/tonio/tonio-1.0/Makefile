@@ -1,7 +1,7 @@
 TARGET = tonio
 LIBS = -lm -liw $(shell pkg-config --libs libmicrohttpd libvlc alsa libconfuse libgpiod)
 CC = gcc
-CFLAGS = -g -Werror $(shell pkg-config --cflags libmicrohttpd libvlc alsa libconfuse libgpiod)
+CFLAGS = -g -Werror -Wall -Wextra -ansi -pedantic $(shell pkg-config --cflags libmicrohttpd libvlc alsa libconfuse libgpiod)
 
 .PHONY: default all clean
 

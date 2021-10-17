@@ -39,7 +39,7 @@ window.onload = function () {
                     currentTagElem.innerHTML = (statusResponse.present && statusResponse.id) || 'none';
                     currentTrackElem.innerHTML = (typeof statusResponse.track_current === 'number') ? statusResponse.track_current : '-';
                     totalTracksElem.innerHTML = (statusResponse.track_total && statusResponse.track_total) || '-';
-                    currentTrackResElem.innerHTML = (statusResponse.track_name && statusResponse.track_name) || '-';
+                    currentTrackResElem.innerHTML = (statusResponse.track_name && decodeURI(statusResponse.track_name)) || '-';
 
                     if (statusResponse.internet === true) {
                         inetConnected.style = 'display: block';

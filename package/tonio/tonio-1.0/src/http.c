@@ -132,7 +132,7 @@ static enum MHD_Result _process_settings(void *cls,
     cfg_t *cfg = (cfg_t *) cls;
     
     char d[size + 1];
-    strncpy(&d, data + off, size);
+    strncpy(d, data + off, size);
     d[size] = 0;
     
     CFG_SETINT(CFG_BTN_TRACK_PREVIOUS);
