@@ -1,7 +1,7 @@
 Tonio is the free juke-box software for children and beyond
 ===========================================================
 
-Inspired by commercial success of _tonies®_, Tonio is the limitless free software alternative for makers with a legacy.
+Inspired by commercial success of _tonies®_, Tonio is the limitless free software children juke-box for makers with a legacy.
 
 The project consists of Tonio daemon software, implementing Jukebox functionality, and a set of carefully crafted Buildroot external configurations for selected boards.
 

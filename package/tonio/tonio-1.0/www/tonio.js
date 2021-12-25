@@ -269,26 +269,20 @@ window.onload = function () {
                         gpioChipName.value = settings.gpio_chip;
                         loadIwlist(settings.essid);
 
-                        settingsForm.onsubmit = (event) => {
-                            let url = "/settings";
-                            // TODO fetch
-                            let request = new XMLHttpRequest();
-                            request.open('POST', url, true);
-                            request.onload = function () { // request successful
-                                // we can use server response to our request now
-                                console.log(request.responseText);
-                            };
-                            request.onerror = function () {
-                                // request failed
-                            };
-                            request.send(new FormData(event.target)); // create FormData from form that triggered event
+                        settingsForm.onsubmit = async event => {
+                            let resp = await fetch('/settings', {
+                                method: 'POST',
+                                body: new FormData(event.target)
+                            });
+                            // TODO give feedback
+                            console.log(resp.responseText);
+
                             return false;
                         };
 
 
                     },
-                    close: () => {
-                    }
+                    close: nop
                 };
             })(),
 
