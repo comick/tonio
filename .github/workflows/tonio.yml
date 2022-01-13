@@ -52,7 +52,9 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: ${{ matrix.config }} images
-        path: 'buildroot-${{ env.buildroot-version }}/output/images'
+        path: |
+            buildroot-${{ env.buildroot-version }}/output/images
+            ../board/${{ matrix.config }}/flash.sh
                 
     - name: Build Graphs
       run: |

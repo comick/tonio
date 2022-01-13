@@ -1,6 +1,6 @@
 auto lo
-auto wlan0
 auto ap0
+auto wlan0
 iface lo inet loopback
 
 allow-hotplug ap0
@@ -9,7 +9,7 @@ iface ap0 inet static
   netmask 255.255.255.0
   hostapd /etc/hostapd.conf
 
-allow-hotplug ap0
+allow-hotplug wlan0
 iface wlan0 inet dhcp
   udhcpc_opts -t 10
   wireless_mode managed
