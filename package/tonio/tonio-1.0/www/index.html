@@ -10,11 +10,13 @@
 
     </head>
     <body>
-        <ul class="menu">
+        <ul id="menu">
             <li onclick="stage('status');"><a id="status-href" href="#status">Status</a></li>
             <li onclick="stage('library');"><a id="library-href" href="#library">Library</a></li>
             <li onclick="stage('settings');"><a id="settings-href" href="#settings">Settings</a></li>
             <li onclick="stage('log');"><a id="log-href" href="#log">Log</a></li>
+
+            <li onclick="stage('setup');" style="display:none"><a id="setup-href" href="#setup">Initial setup</a></li>
             <li onclick="stage('about');" style="float:right"><a id="about-href" href="#about">About</a></li>
         </ul>
 
@@ -68,6 +70,12 @@
 
         </div>
 
+        <div id="setup-stage" class="stage">
+            <h1>Wellcome to your brand new Tonio!</h1>
+            <p>Nothing to do yet, push the button to toggle factory new switch and you won't see this again.</p>
+            <input type="submit" id="setup-finalize" value="Finalize and start using tonio" />
+        </div>
+        
         <div id="about-stage" class="stage">
             <p>Tonio is the free juke-box software for children and beyond</p>
             <p>For more information, please reach the project web site at <a href="https://github.com/comick/tonio/">https://github.com/comick/tonio/</a>.</p>           

@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Tonio.  If not, see <http://www.gnu.org/licenses/>.
  */
-window.onload = function () {
+window.onload = async () => {
     window.stage = (() => {
         let currentStageId;
 
@@ -238,28 +238,6 @@ window.onload = function () {
 
                         iwlist.innerHTML = '';
 
-                        async function loadIwlist(currentEssid) {
-                            iwlist.disabled = true;
-                            iwlistReload.className = 'disabled';
-                            iwlistReload.onclick = null;
-                            let networks = await (await fetch('/iwlist')).json();
-                            iwlist.innerHTML = '';
-                            networks.forEach(essid => {
-                                let network = document.createElement('option');
-                                if (essid === currentEssid) {
-                                    network.innerHTML = `${essid} (current)`;
-                                    network.selected = 'selected';
-                                } else {
-                                    network.innerHTML = essid;
-                                }
-                                network.value = essid;
-                                iwlist.appendChild(network);
-                            });
-                            iwlist.disabled = false;
-                            iwlistReload.className = 'enabled';
-                            iwlistReload.onclick = loadIwlist.bind(null, currentEssid);
-                        }
-
                         let settings = await (await fetch('/settings')).json();
                         gpioPrev.value = settings.pin_prev;
                         gpioNext.value = settings.pin_next;
@@ -267,7 +245,7 @@ window.onload = function () {
                         gpioVoldown.value = settings.pin_voldown;
                         spiDev.value = settings.spi_rfid;
                         gpioChipName.value = settings.gpio_chip;
-                        loadIwlist(settings.essid);
+                        loadIwlist(settings.essid, iwlist, iwlistReload);
 
                         settingsForm.onsubmit = async event => {
                             let resp = await fetch('/settings', {
@@ -281,6 +259,36 @@ window.onload = function () {
                         };
 
 
+                    },
+                    close: nop
+                };
+            })(),
+
+            setup: (() => {
+                let settings;
+                let finalizeButton;
+
+                async function finalize() {
+                    settings['factory-new'] = false;
+
+                    let body = new FormData();
+                    Object.keys(settings).forEach(k => body.append(k, settings[k]));
+
+                    let resp = await fetch('/settings', {
+                        method: 'POST',
+                        body: body
+                    });
+                    location.reload(true);
+                }
+
+                return {
+                    open: async () => {
+                        settings = await (await fetch('/settings')).json();
+                        if (settings['factory-new'] === false){
+                            stage('status');
+                        }
+                        finalizeButton = document.getElementById('setup-finalize');
+                        finalizeButton.onclick = finalize;
                     },
                     close: nop
                 };
@@ -313,6 +321,35 @@ window.onload = function () {
 
     })();
 
-    let hash = window.location.hash.substr(1);
-    (hash && stage(hash)) || stage('status');
+    let settings = await(await fetch('/settings')).json();
+    if (settings.factory_new) {
+        stage('setup');
+    } else {
+        document.getElementById('menu').style = 'display: block';
+        let hash = window.location.hash.substr(1);
+        (hash && hash !== 'setup' && stage(hash)) || stage('status');
+    }
 };
+
+
+async function loadIwlist(currentEssid, iwlist, iwlistReload) {
+    iwlist.disabled = true;
+    iwlistReload.className = 'disabled';
+    iwlistReload.onclick = null;
+    let networks = await (await fetch('/iwlist')).json();
+    iwlist.innerHTML = '';
+    networks.forEach(essid => {
+        let network = document.createElement('option');
+        if (essid === currentEssid) {
+            network.innerHTML = `${essid} (current)`;
+            network.selected = 'selected';
+        } else {
+            network.innerHTML = essid;
+        }
+        network.value = essid;
+        iwlist.appendChild(network);
+    });
+    iwlist.disabled = false;
+    iwlistReload.className = 'enabled';
+    iwlistReload.onclick = loadIwlist.bind(null, currentEssid, iwlist, iwlistReload);
+}

@@ -53,9 +53,13 @@
 
 #define STATUS_TAG_JSON_FMT "{\"present\":%s,\"id\":\"%02X%02X%02X%02X\",\"track_current\":%d,\"track_total\":%d,\"track_name\":\"%s\",\"internet\":%s}"
 
-#define SETTINGS_JSON_FMT "{\"essid\":\"%s\",\"pin_prev\":%d,\"pin_next\":%d,\"pin_volup\":%d,\"pin_voldown\":%d,\"pin_rfid\":%d,\"spi_rfid\":\"%s\",\"gpio_chip\":\"%s\"}"
+#define SETTINGS_JSON_FMT "{\"essid\":\"%s\",\"pin_prev\":%d,\"pin_next\":%d,\"pin_volup\":%d,\"pin_voldown\":%d,\"pin_rfid\":%d,\"spi_rfid\":\"%s\",\"gpio_chip\":\"%s\",\"factory_new\":%s}"
 
 #define LIBRARY_URL_PATH "/library"
+
+#define CFG_SETBOOL(K) if (strcmp(key, K) == 0) { \
+    cfg_setbool(cfg, K, strcmp("true", d) == 0 ? cfg_true : cfg_false); \
+}
 
 #define CFG_SETINT(K) if (strcmp(key, K) == 0) { \
     cfg_setint(cfg, K, atol(d)); \
@@ -135,6 +139,7 @@ static enum MHD_Result _process_settings(void *cls,
     strncpy(d, data + off, size);
     d[size] = 0;
     
+    CFG_SETBOOL(CFG_FACTORY_NEW);
     CFG_SETINT(CFG_BTN_TRACK_PREVIOUS);
     CFG_SETINT(CFG_BTN_TRACK_NEXT);
     CFG_SETINT(CFG_BTN_VOLUME_UP);
@@ -189,6 +194,7 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     I_CHECK(iw_get_basic_config(iw_sock, "wlan0", &wconfig), return MHD_NO);
     iw_sockets_close(iw_sock);
 
+    char *factory_new = cfg_getbool(self->cfg, CFG_FACTORY_NEW) == cfg_true ? "true" : "false";
     int pin_prev = cfg_getint(self->cfg, CFG_BTN_TRACK_PREVIOUS);
     int pin_next = cfg_getint(self->cfg, CFG_BTN_TRACK_NEXT);
     int pin_vol_up = cfg_getint(self->cfg, CFG_BTN_VOLUME_UP);
@@ -197,9 +203,9 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     char *spi_dev = cfg_getstr(self->cfg, CFG_MFRC522_SPI_DEV);
     char *gpio_chip = cfg_getstr(self->cfg, CFG_GPIOD_CHIP_NAME);
 
-    page_len = snprintf(NULL, 0, SETTINGS_JSON_FMT, wconfig.essid, pin_prev, pin_next, pin_vol_up, pin_vol_down, pin_rfid, spi_dev, gpio_chip);
+    page_len = snprintf(NULL, 0, SETTINGS_JSON_FMT, wconfig.essid, pin_prev, pin_next, pin_vol_up, pin_vol_down, pin_rfid, spi_dev, gpio_chip, factory_new);
     page = malloc(page_len + 1);
-    snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid, pin_prev, pin_next, pin_vol_up, pin_vol_down, pin_rfid, spi_dev, gpio_chip);
+    snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid, pin_prev, pin_next, pin_vol_up, pin_vol_down, pin_rfid, spi_dev, gpio_chip, factory_new);
 
     response = MHD_create_response_from_buffer(page_len, (void*) page, MHD_RESPMEM_MUST_FREE);
     P_CHECK(response, return MHD_NO);

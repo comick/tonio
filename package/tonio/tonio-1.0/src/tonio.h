@@ -24,6 +24,7 @@
 #include <syslog.h>
 #include <string.h>
 
+#define CFG_FACTORY_NEW "factory-new"
 #define CFG_MEDIA_ROOT "media-root"
 #define CFG_GPIOD_CHIP_NAME "gpiod-chip-name"
 #define CFG_MIXER_CARD "mixer-card"

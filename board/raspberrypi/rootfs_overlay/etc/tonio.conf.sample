@@ -1,4 +1,4 @@
-factory-new = false
+factory-new = true
 
 media-root ='/mnt/media/'
 

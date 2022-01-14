@@ -26,8 +26,6 @@ if [ -e ${TARGET_DIR}/etc/avahi/avahi-daemon.conf ]; then
 deny-interfaces=ap0' ${TARGET_DIR}/etc/avahi/avahi-daemon.conf
 fi
 
-# TODO levare ipv6
-
 # Use factory interfaces config if not overridden
 if [ ! -e ${TARGET_DIR}/etc/network/interfaces ]; then
     cp ${TARGET_DIR}/etc/network/interfaces.sample ${TARGET_DIR}/etc/network/interfaces
@@ -35,5 +33,10 @@ fi
 
 # Use factory WPA config if not overridden
 if [ ! -e ${TARGET_DIR}/etc/wpa_supplicant.conf ]; then
-    cp ${TARGET_DIR}/etc/wpa_supplicant.conf ${TARGET_DIR}/etc/wpa_supplicant.conf
+    cp ${TARGET_DIR}/etc/wpa_supplicant.conf.sample ${TARGET_DIR}/etc/wpa_supplicant.conf
+fi
+
+# Use factory tonio config if not overridden
+if [ ! -e ${TARGET_DIR}/etc/tonio.conf ]; then
+    cp ${TARGET_DIR}/etc/tonio.conf.sample ${TARGET_DIR}/etc/tonio.conf
 fi

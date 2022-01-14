@@ -14,14 +14,18 @@ body {
     padding: 0;
 }
 
-ul.menu {
+#menu {
+    display: none;
+}
+
+ul#menu {
     list-style-type: none;
     margin: 0;
     padding: 0;
     overflow: hidden;
 }
 
-ul.menu li {
+ul#menu li {
     float: left;
 }
 
