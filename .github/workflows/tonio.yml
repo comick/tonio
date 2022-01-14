@@ -54,7 +54,7 @@ jobs:
         name: ${{ matrix.config }} images
         path: |
             buildroot-${{ env.buildroot-version }}/output/images
-            ../board/${{ matrix.config }}/flash.sh
+            board/${{ matrix.config }}/flash.sh
                 
     - name: Build Graphs
       run: |
