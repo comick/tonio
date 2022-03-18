@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 env:
-  buildroot-version: 2021.02.8
+  buildroot-version: 2022.02
 
 jobs:
   build:
@@ -16,7 +16,7 @@ jobs:
     
     strategy:
         matrix:
-            config: [raspberrypi3, raspberrypi0w]
+            config: [raspberrypi3]
 
     steps:
         

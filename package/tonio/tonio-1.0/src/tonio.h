@@ -38,8 +38,7 @@
 #define CFG_MFRC522_SPI_DEV "mfrc522-spi-dev"
 
 #define I_CHECK(V, A) do { \
-    int ret = (V); \
-    if (ret < 0) { \
+    if ((V) < 0) { \
         syslog(LOG_ERR, "%s at %s (%d): %s", #V, __FILE__, __LINE__, strerror(errno)); \
         A; \
     } \

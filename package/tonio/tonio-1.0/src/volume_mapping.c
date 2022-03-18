@@ -53,7 +53,7 @@ static long lrint_dir(double x, int dir)
 		return lrint(x);
 }
 
-enum ctl_dir { PLAYBACK, CAPTURE };
+enum ctl_dir { PLAYBACK };
 
 static int (* const get_dB_range[2])(snd_mixer_elem_t *, long *, long *) = {
 	snd_mixer_selem_get_playback_dB_range,
@@ -156,24 +156,10 @@ double get_normalized_playback_volume(snd_mixer_elem_t *elem,
 	return get_normalized_volume(elem, channel, PLAYBACK);
 }
 
-double get_normalized_capture_volume(snd_mixer_elem_t *elem,
-				     snd_mixer_selem_channel_id_t channel)
-{
-	return get_normalized_volume(elem, channel, CAPTURE);
-}
-
 int set_normalized_playback_volume(snd_mixer_elem_t *elem,
 				   snd_mixer_selem_channel_id_t channel,
 				   double volume,
 				   int dir)
 {
 	return set_normalized_volume(elem, channel, volume, dir, PLAYBACK);
-}
-
-int set_normalized_capture_volume(snd_mixer_elem_t *elem,
-				  snd_mixer_selem_channel_id_t channel,
-				  double volume,
-				  int dir)
-{
-	return set_normalized_volume(elem, channel, volume, dir, CAPTURE);
 }

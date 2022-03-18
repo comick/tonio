@@ -341,15 +341,15 @@ void tn_media_previous(tn_media_t *self) {
 }
 
 void tn_media_volume_down(tn_media_t *self) {
-    double vol_curr = get_normalized_playback_volume(self->mixer_elem, SND_MIXER_SABSTRACT_BASIC);
+    double vol_curr = get_normalized_playback_volume(self->mixer_elem, SND_MIXER_SCHN_UNKNOWN);
     vol_curr = fmax(vol_curr - 0.05, 0.0);
-    set_normalized_playback_volume(self->mixer_elem, SND_MIXER_SABSTRACT_BASIC, vol_curr, 0);
+    set_normalized_playback_volume(self->mixer_elem, SND_MIXER_SCHN_UNKNOWN, vol_curr, 0);
 }
 
 void tn_media_volume_up(tn_media_t *self) {
-    double vol_curr = get_normalized_playback_volume(self->mixer_elem, SND_MIXER_SABSTRACT_BASIC);
+    double vol_curr = get_normalized_playback_volume(self->mixer_elem, SND_MIXER_SCHN_UNKNOWN);
     vol_curr = fmin(vol_curr + 0.05, self->volume_max);
-    set_normalized_playback_volume(self->mixer_elem, SND_MIXER_SABSTRACT_BASIC, vol_curr, 0);
+    set_normalized_playback_volume(self->mixer_elem, SND_MIXER_SCHN_UNKNOWN, vol_curr, 0);
 }
 
 void tn_media_stop(tn_media_t *self) {
@@ -360,7 +360,7 @@ void tn_media_stop(tn_media_t *self) {
     tn_media_position_t *curr_pos = _save_stream_positions(self);
 
     if (self->media_list != NULL) libvlc_media_list_release(self->media_list);
-    self->media_list == NULL;
+    self->media_list = NULL;
 
     libvlc_media_list_player_stop(self->media_list_player);
     libvlc_media_list_player_release(self->media_list_player);
@@ -483,8 +483,8 @@ char *find_playlist_filename(char *media_root, uint8_t *card_id) {
     // Search for first m3u file.
     DIR *dir = opendir(tag_library_path);
     P_CHECK(dir, goto find_cleanup);
-    struct dirent *ent = NULL;
-    for (ent; ent = readdir(dir); ent != NULL) {
+    struct dirent *ent = readdir(dir);
+    while (ent != NULL) {
         size_t dir_len = strlen(ent->d_name);
         char *dir_suffix = ent->d_name + dir_len - PLAYLIST_SUFFIX_LEN;
         if (dir_len > PLAYLIST_SUFFIX_LEN && strcmp(dir_suffix, PLAYLIST_SUFFIX) == 0) {
@@ -493,6 +493,7 @@ char *find_playlist_filename(char *media_root, uint8_t *card_id) {
             snprintf(tag_playlist_path, playlist_path_len + 1, playlist_path_fmt, tag_library_path, ent->d_name);
             break;
         }
+        ent = readdir(dir);
     }
 
 find_cleanup:

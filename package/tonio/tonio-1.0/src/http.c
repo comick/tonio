@@ -62,7 +62,7 @@
 }
 
 #define CFG_SETINT(K) if (strcmp(key, K) == 0) { \
-    cfg_setint(cfg, K, atol(d)); \
+    cfg_setint(cfg, K, strtol(d, NULL, 10)); \
 }
 
 #define CFG_SETSTR(K) if (strcmp(key, K) == 0) { \
@@ -71,7 +71,6 @@
 
 struct tn_http {
     char *library_root;
-    size_t library_root_len;
 
     struct MHD_Daemon *mhd_daemon;
     bool internet_connected;
@@ -195,11 +194,11 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     iw_sockets_close(iw_sock);
 
     char *factory_new = cfg_getbool(self->cfg, CFG_FACTORY_NEW) == cfg_true ? "true" : "false";
-    int pin_prev = cfg_getint(self->cfg, CFG_BTN_TRACK_PREVIOUS);
-    int pin_next = cfg_getint(self->cfg, CFG_BTN_TRACK_NEXT);
-    int pin_vol_up = cfg_getint(self->cfg, CFG_BTN_VOLUME_UP);
-    int pin_vol_down = cfg_getint(self->cfg, CFG_BTN_VOLUME_DOWN);
-    int pin_rfid = cfg_getint(self->cfg, CFG_MFRC522_SWITCH);
+    long pin_prev = cfg_getint(self->cfg, CFG_BTN_TRACK_PREVIOUS);
+    long pin_next = cfg_getint(self->cfg, CFG_BTN_TRACK_NEXT);
+    long pin_vol_up = cfg_getint(self->cfg, CFG_BTN_VOLUME_UP);
+    long pin_vol_down = cfg_getint(self->cfg, CFG_BTN_VOLUME_DOWN);
+    long pin_rfid = cfg_getint(self->cfg, CFG_MFRC522_SWITCH);
     char *spi_dev = cfg_getstr(self->cfg, CFG_MFRC522_SPI_DEV);
     char *gpio_chip = cfg_getstr(self->cfg, CFG_GPIOD_CHIP_NAME);
 
@@ -280,7 +279,7 @@ static enum MHD_Result _handle_log_offset_arg(void *cls,
         size_t len = strlen(value);
         size_t i;
         for (i = 0; i < len && isdigit(value[i]); i++);
-        if (i == len) *offset_arg = atol(value);
+        if (i == len) *offset_arg = strtol(value, NULL, 10);
 
         return MHD_YES;
     } else {
@@ -583,7 +582,6 @@ tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg
     self->media = media;
     self->selected_card_id = selected_card_id;
     self->library_root = cfg_getstr(cfg, CFG_MEDIA_ROOT);
-    self->library_root_len = strlen(self->library_root);
     self->cfg = cfg;
 
     self->internet_connected = false;
