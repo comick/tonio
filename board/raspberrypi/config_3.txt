@@ -4,8 +4,8 @@
 # See http://buildroot.org/manual.html#rootfs-custom
 # and http://elinux.org/RPiconfig for a description of config.txt syntax
 
-start_file=start.elf
-fixup_file=fixup.dat
+start_file=start_cd.elf
+fixup_file=fixup_cd.dat
 
 kernel=zImage
 
@@ -16,11 +16,8 @@ kernel=zImage
 # If the text shown on the screen disappears off the edge, comment this out
 disable_overscan=1
 
-# How much memory in MB to assign to the GPU on Pi models having
-# 256, 512 or 1024 MB total memory
-gpu_mem_256=100
-gpu_mem_512=100
-gpu_mem_1024=100
+# since using start_cd.elf
+gpu_mem=16
 
 # fixes rpi (3B, 3B+, 3A+, 4B and Zero W) ttyAMA0 serial console
 dtoverlay=miniuart-bt
@@ -33,3 +30,7 @@ dtparam=audio=on
 
 # enables spi for rfid
 dtparam=spi=on
+
+# faster boot
+boot_delay=0
+disable_splash=1
