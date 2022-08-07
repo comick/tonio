@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 env:
-  buildroot-version: 2022.02.3
+  buildroot-version: 2022.02.4
 
 jobs:
   build:
