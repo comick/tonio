@@ -3,6 +3,8 @@
 IMG_PATH=$1
 DEV=$2
 
+ls $DEV?* -1 | xargs umount || true
+
 sudo dd if=$IMG_PATH of=$DEV
 sync
 
