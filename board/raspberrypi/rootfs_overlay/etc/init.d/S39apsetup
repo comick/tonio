@@ -7,6 +7,8 @@ case "$1" in
   start)
         printf "Setting up access point device: "
         MAC=$(cat /sys/class/net/wlan0/address)
+        # Same channel will be used for ap0, see hostapd.conf
+        iwconfig wlan0 channel 6
         /usr/sbin/iw phy phy0 interface add ap0 type __ap && /sbin/ip link set ap0 address $MAC
         [ $? = 0 ] && echo "OK" || echo "FAIL"
         ;;
