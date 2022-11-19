@@ -30,9 +30,9 @@ endef
 $(eval $(generic-package))
 
 tonio-deploy: tonio-rebuild
-	ssh root@tonio.local '/etc/init.d/S15tonio stop'
-	scp $(TONIO_SITE)/www/index.html root@tonio.local:/usr/share/tonio/www/index.html
-	scp $(TONIO_SITE)/www/tonio.css root@tonio.local:/usr/share/tonio/www/tonio.css
-	scp $(TONIO_SITE)/www/tonio.js root@tonio.local:/usr/share/tonio/www/tonio.js
-	scp $(TARGET_DIR)/usr/bin/tonio root@tonio.local:/usr/bin/tonio
-	ssh root@tonio.local '/etc/init.d/S15tonio start'
+	ssh root@$(target) '/etc/init.d/S15tonio stop'
+	scp $(TONIO_SITE)/www/index.html root@$(target):/usr/share/tonio/www/index.html
+	scp $(TONIO_SITE)/www/tonio.css root@$(target):/usr/share/tonio/www/tonio.css
+	scp $(TONIO_SITE)/www/tonio.js root@$(target):/usr/share/tonio/www/tonio.js
+	scp $(TARGET_DIR)/usr/bin/tonio root@$(target):/usr/bin/tonio
+	ssh root@$(target) '/etc/init.d/S15tonio start'

@@ -67,6 +67,11 @@ int main(int argc, char** argv) {
 
     openlog("tonio", LOG_PID | LOG_CONS | LOG_PERROR, LOG_USER);
 
+    if (argc < 2) {
+        syslog(LOG_CRIT, "Exactly one argument is expected, pointing to the configuration.");
+        return EXIT_FAILURE;
+    }
+
     cfg_t *cfg = cfg_init(config_opts, CFGF_NONE);
 
     if (!cfg || cfg_parse(cfg, argv[1]) == CFG_PARSE_ERROR) {
@@ -75,6 +80,7 @@ int main(int argc, char** argv) {
     }
 
     tn_media_t *media = tn_media_init(cfg);
+    P_CHECK(media, return EXIT_FAILURE);
 
     P_CHECK(gpio_chip = gpiod_chip_open_by_name(cfg_getstr(cfg, CFG_GPIOD_CHIP_NAME)), return EXIT_FAILURE);
     P_CHECK(gpio_mfrc522_line = gpiod_chip_get_line(gpio_chip, cfg_getint(cfg, CFG_MFRC522_SWITCH)), return EXIT_FAILURE);
@@ -98,6 +104,7 @@ int main(int argc, char** argv) {
     I_CHECK(gpiod_line_request_input(vol_down_line, "tonio"), return EXIT_FAILURE);
 
     tn_http_t *http = tn_http_init(media, selected_card_id, cfg);
+    P_CHECK(http, return EXIT_FAILURE);
 
     while (true) {
 

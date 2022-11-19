@@ -154,7 +154,7 @@ tn_media_t *tn_media_init(cfg_t *cfg) {
 init_error:
     syslog(LOG_EMERG, "Could not ininitalize media sub-system");
     tn_media_destroy(self);
-    exit(EXIT_FAILURE);
+    return NULL;
 }
 
 static void _post_is_playing(const struct libvlc_event_t *event, void *user_data) {
