@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
 
         syslog(LOG_INFO, "Card uid detected: %02X%02X%02X%02X", card_id[0], card_id[1], card_id[2], card_id[3]);
 
-        if (MFRC522_SelectTag(card_id) == 0) {
+        if ((ret_int = MFRC522_SelectTag(card_id)) == 0) {
             syslog(LOG_ERR, "Card select failed");
         } else {
 

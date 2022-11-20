@@ -1,7 +1,7 @@
 TARGET = tonio
 LIBS = -lm -liw $(shell pkg-config --libs libmicrohttpd libvlc alsa libconfuse libgpiod)
 CC = gcc
-CFLAGS = -g -Werror -Wall -Wextra -ansi -pedantic $(shell pkg-config --cflags libmicrohttpd libvlc alsa libconfuse libgpiod)
+CCFLAGS = -g -Werror -Wall -Wextra -Wno-unused -pedantic $(shell pkg-config --cflags libmicrohttpd libvlc alsa libconfuse libgpiod)
 
 .PHONY: default all clean
 
@@ -12,12 +12,12 @@ OBJECTS = $(patsubst %.c, %.o, $(wildcard src/*.c))
 HEADERS = $(wildcard *.h)
 
 %.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(CCFLAGS) -c $< -o $@
 
 .PRECIOUS: $(TARGET) $(OBJECTS)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) $(CFLAGS) $(LIBS) -o $@
+	$(CC) $(OBJECTS) $(CFLAGS) $(CCFLAGS) $(LIBS) -o $@
 
 clean:
 	-rm -f src/*.o

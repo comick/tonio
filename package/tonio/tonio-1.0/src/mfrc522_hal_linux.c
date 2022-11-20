@@ -113,8 +113,8 @@ void MFRC522_HAL_write(unsigned char addr, unsigned char val) {
  */
 unsigned char MFRC522_HAL_read(unsigned char addr) {
 	int ret;
-	char _dummytx[2];
-	char _rxbuf[2];
+	unsigned char _dummytx[2];
+	unsigned char _rxbuf[2];
 	_dummytx[0] = ((addr << 1) & 0xFE)|0x80;
 	_dummytx[1] = 0xFF;
 

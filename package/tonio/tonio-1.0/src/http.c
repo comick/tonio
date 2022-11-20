@@ -53,7 +53,7 @@
 
 #define STATUS_TAG_JSON_FMT "{\"present\":%s,\"id\":\"%02X%02X%02X%02X\",\"track_current\":%d,\"track_total\":%d,\"track_name\":\"%s\",\"internet\":%s}"
 
-#define SETTINGS_JSON_FMT "{\"essid\":\"%s\",\"pin_prev\":%d,\"pin_next\":%d,\"pin_volup\":%d,\"pin_voldown\":%d,\"pin_rfid\":%d,\"spi_rfid\":\"%s\",\"gpio_chip\":\"%s\",\"factory_new\":%s}"
+#define SETTINGS_JSON_FMT "{\"essid\":\"%s\",\"pin_prev\":%lu,\"pin_next\":%lu,\"pin_volup\":%lu,\"pin_voldown\":%lu,\"pin_rfid\":%lu,\"spi_rfid\":\"%s\",\"gpio_chip\":\"%s\",\"factory_new\":%s}"
 
 #define LIBRARY_URL_PATH "/library"
 
@@ -95,7 +95,7 @@ static int _handle_status(void *cls, struct MHD_Connection *connection,
     char *internet_status = self->internet_connected ? JSON_TRUE : JSON_FALSE;
     char *tag_present = (card_id[0] | card_id[1] | card_id[2] | card_id[3]) ? JSON_TRUE : JSON_FALSE;
     bool playing = tn_media_is_playing(self->media);
-    int current_track, track_total = -1;
+    int current_track = -1, track_total = -1;
     char *track_name = "";
 
     if (playing) {
@@ -150,14 +150,14 @@ static enum MHD_Result _process_settings(void *cls,
     return MHD_YES;
 }
 
-static int _handle_settings(void *cls, struct MHD_Connection *connection,
+static enum MHD_Result _handle_settings(void *cls, struct MHD_Connection *connection,
         const char *url,
         const char *method, const char *version,
         const char *upload_data,
         size_t *upload_data_size, void **con_cls) {
 
     struct MHD_Response *response;
-    int ret;
+    enum MHD_Result ret;
 
     tn_http_t *self = (tn_http_t *) cls;
 
@@ -217,13 +217,12 @@ static int _handle_settings(void *cls, struct MHD_Connection *connection,
     return ret;
 }
 
-static int _handle_static(void *cls, struct MHD_Connection *connection,
+static enum MHD_Result _handle_static(void *cls, struct MHD_Connection *connection,
         const char *url,
         const char *method, const char *version,
         const char *upload_data,
         size_t *upload_data_size, void **con_cls) {
 
-    tn_http_t *self = (tn_http_t *) cls;
     struct MHD_Response *response = NULL;
     struct stat tmp_stat;
     unsigned int status_code = MHD_HTTP_OK;
@@ -287,7 +286,7 @@ static enum MHD_Result _handle_log_offset_arg(void *cls,
     }
 }
 
-static int _handle_log(void *cls, struct MHD_Connection *connection,
+static enum MHD_Result _handle_log(void *cls, struct MHD_Connection *connection,
         const char *url,
         const char *method, const char *version,
         const char *upload_data,
@@ -295,7 +294,7 @@ static int _handle_log(void *cls, struct MHD_Connection *connection,
 
     off_t log_offset = 0;
     struct MHD_Response *response;
-    int ret;
+    enum MHD_Result ret;
 
     syslog(LOG_DEBUG, "Log requested");
 
@@ -306,7 +305,7 @@ static int _handle_log(void *cls, struct MHD_Connection *connection,
 
     if (MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, _handle_log_offset_arg, &log_offset) > 0) {
         if (log_offset >= sz) {
-            syslog(LOG_DEBUG, "Offset longer than the log itself: %ld vs %ld", log_offset, sz);
+            syslog(LOG_DEBUG, "Offset longer than the log itself: %lld vs %lld", log_offset, sz);
             log_offset = 0;
             // TODO this is whensyslog is rotated/flushed. send some header so html restart log thing.
         }
@@ -475,7 +474,7 @@ static void _library_tags_json_free(void *cls) {
     free(sts);
 }
 
-static int _handle_library(void *cls, struct MHD_Connection *connection,
+static enum MHD_Result _handle_library(void *cls, struct MHD_Connection *connection,
         const char *url,
         const char *method, const char *version,
         const char *upload_data,
@@ -483,7 +482,7 @@ static int _handle_library(void *cls, struct MHD_Connection *connection,
 
     tn_http_t *self = (tn_http_t *) cls;
     struct MHD_Response *response;
-    int ret;
+    enum MHD_Result ret;
 
     syslog(LOG_DEBUG, "Library requested");
 
