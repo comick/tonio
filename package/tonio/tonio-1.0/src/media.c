@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 Michele Comignano <comick@gmail.com>
+ * Copyright (c) 2020-2022 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -121,7 +121,7 @@ tn_media_t *tn_media_init(cfg_t *cfg) {
     self->positions_filepath = malloc(buf_len);
     strcpy(self->positions_filepath, self->media_root);
     strcat(self->positions_filepath, POS_SAVE_FILE);
-    
+
     buf_len = strlen(self->media_root) + strlen(POS_SAVE_FILE_TEMPLATE) + 1;
     self->tmp_positions_filepath_tpl = malloc(buf_len);
     strcpy(self->tmp_positions_filepath_tpl, self->media_root);
@@ -137,9 +137,12 @@ tn_media_t *tn_media_init(cfg_t *cfg) {
 
         while (ftell(positions_file) < size) {
             tn_media_position_t *saved_pos = malloc(sizeof (tn_media_position_t));
-            fread(&(saved_pos->card_id), sizeof (uint32_t), 1, positions_file);
-            fread(&(saved_pos->media_idx), sizeof (int), 1, positions_file);
-            fread(&(saved_pos->media_pos), sizeof (float), 1, positions_file);
+            ssize_t res = fread(&(saved_pos->card_id), sizeof (uint32_t), 1, positions_file);
+            I_CHECK(res - 1, goto init_error);
+            res = fread(&(saved_pos->media_idx), sizeof (int), 1, positions_file);
+            I_CHECK(res - 1, goto init_error);
+            res = fread(&(saved_pos->media_pos), sizeof (float), 1, positions_file);
+            I_CHECK(res - 1, goto init_error);
             HASH_ADD_INT(self->media_positions, card_id, saved_pos);
             syslog(LOG_INFO, "Loaded playlist position for : %u @ %d : %f", saved_pos->card_id, saved_pos->media_idx, saved_pos->media_pos);
             i++;
@@ -254,7 +257,7 @@ bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
     I_CHECK(sem_init(&is_playing, 0, 0), goto play_cleanup);
     libvlc_event_manager_t *evt_manager = libvlc_media_player_event_manager(media_player);
     I_CHECK(libvlc_event_attach(evt_manager, libvlc_MediaPlayerPlaying, _post_is_playing, &is_playing), goto play_cleanup);
-    
+
     if (saved_position == NULL || !_apply_saved_position(self, media_player, tag_playlist_path, saved_position)) {
         syslog(LOG_INFO, "Start playing %s", tag_playlist_path);
         libvlc_media_list_player_play(self->media_list_player);
@@ -263,11 +266,11 @@ bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
     // Listening for position change won't work until playing.
     sem_wait(&is_playing);
     libvlc_event_detach(evt_manager, libvlc_MediaPlayerPlaying, _post_is_playing, &is_playing);
-    
+    // TODO fix, when playing card from beginning, event position changed is not received.
     I_CHECK(libvlc_event_attach(evt_manager, libvlc_MediaPlayerPositionChanged, _save_stream_positions_onchange, self), goto play_cleanup);
 
     sem_destroy(&is_playing);
-    
+
     played = true;
 
 play_cleanup:
@@ -412,10 +415,10 @@ static tn_media_position_t *_save_stream_positions(tn_media_t *self) {
 
     tmp_file_name = malloc(strlen(self->tmp_positions_filepath_tpl) + 1);
     tmp_file_name = strcpy(tmp_file_name, self->tmp_positions_filepath_tpl);
-    
+
     tmp_fd = mkstemp(tmp_file_name);
     I_CHECK(tmp_fd, goto save_pos_clean);
-    
+
     FILE *positions_file = fdopen(tmp_fd, "w");
     P_CHECK(positions_file, syslog(LOG_ERR, "Cannot write positions file: %s", self->positions_filepath); goto save_pos_clean);
     tn_media_position_t * nxt = self->media_positions;

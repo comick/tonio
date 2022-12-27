@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020, 2021 Michele Comignano <comick@gmail.com>
+ * Copyright (c) 2020-2022 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -31,6 +31,7 @@
 #include "http.h"
 #include "tonio.h"
 #include "media.h"
+#include "json.h"
 
 #define STATIC_RES_ROOT "/usr/share/tonio/www"
 
@@ -47,9 +48,6 @@
 #define FILE_EXT_JS_LEN strlen(FILE_EXT_JS)
 #define FILE_EXT_CSS_LEN strlen(FILE_EXT_CSS)
 #define FILE_EXT_HTML_LEN strlen(FILE_EXT_HTML)
-
-#define JSON_TRUE "true"
-#define JSON_FALSE "false"
 
 #define STATUS_TAG_JSON_FMT "{\"present\":%s,\"id\":\"%02X%02X%02X%02X\",\"track_current\":%d,\"track_total\":%d,\"track_name\":\"%s\",\"internet\":%s}"
 
@@ -133,11 +131,11 @@ static enum MHD_Result _process_settings(void *cls,
         uint64_t off,
         size_t size) {
     cfg_t *cfg = (cfg_t *) cls;
-    
+
     char d[size + 1];
     strncpy(d, data + off, size);
     d[size] = 0;
-    
+
     CFG_SETBOOL(CFG_FACTORY_NEW);
     CFG_SETINT(CFG_BTN_TRACK_PREVIOUS);
     CFG_SETINT(CFG_BTN_TRACK_NEXT);
@@ -324,54 +322,22 @@ static enum MHD_Result _handle_log(void *cls, struct MHD_Connection *connection,
 typedef struct {
     int iwsocket;
     wireless_scan *scan_result;
-    bool done;
 } _iwlist_json_status_t;
 
-static ssize_t _iwlist_json(void *cls, uint64_t pos, char *buf, size_t max) {
-    _iwlist_json_status_t *status = cls;
-    wireless_scan *scan_result = status->scan_result;
-    const char *begin = "[";
-    const char *end = "]";
-    const char *quote = "\"";
-    const char *sep = ",";
+static char * _iwlist_json_next(void *cls) {
+    _iwlist_json_status_t *sts = (_iwlist_json_status_t *) cls;
 
-    if (status->done) return MHD_CONTENT_READER_END_OF_STREAM;
-
-    if (pos == 0) {
-        memcpy(buf, begin, strlen(begin));
-        return strlen(begin);
+    if (sts->scan_result == NULL) {
+        return NULL;
+    } else {
+        char *res = sts->scan_result->b.essid;
+        sts->scan_result = sts->scan_result->next;
+        return res;
     }
-
-    if (scan_result == NULL) {
-        status->done = true;
-        memcpy(buf, end, strlen(end));
-        return strlen(end);
-    }
-
-    int offset = 0;
-
-    if (pos != strlen(begin)) {
-        memcpy(buf + offset, sep, strlen(sep));
-        offset += strlen(sep);
-    }
-
-    memcpy(buf + offset, quote, strlen(quote));
-    offset += strlen(quote);
-
-    char *essid = scan_result->b.essid;
-    memcpy(buf + offset, essid, strlen(essid));
-    offset += strlen(essid);
-    status->scan_result = scan_result->next;
-    free(scan_result);
-
-    memcpy(buf + offset, quote, strlen(quote));
-    offset += strlen(quote);
-
-    return offset;
 }
 
 static void _iwlist_json_free(void *cls) {
-    _iwlist_json_status_t *sts = cls;
+    _iwlist_json_status_t *sts = (_iwlist_json_status_t *) cls;
     iw_sockets_close(sts->iwsocket);
     free(sts);
 }
@@ -398,11 +364,15 @@ static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
 
     _iwlist_json_status_t *sts = malloc(sizeof (_iwlist_json_status_t));
     sts->scan_result = head.result;
-    sts->done = false;
     sts->iwsocket = sock;
 
-    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11, _iwlist_json, sts, _iwlist_json_free);
-    P_CHECK(response, return MHD_NO);
+    tn_json_string_iterator_t *iwlist_it = tn_json_string_iterator_new(sts, _iwlist_json_next, _iwlist_json_free);
+
+    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
+            tn_json_string_array_callback,
+            iwlist_it,
+            tn_json_string_iterator_free
+            );
 
     P_CHECK(response, return MHD_NO);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
@@ -412,66 +382,25 @@ static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
     return ret;
 }
 
-typedef struct {
-    DIR *dir;
-    bool done;
-} _library_tags_json_status_t;
-
-static ssize_t _library_tags_json(void *cls,
-        uint64_t pos,
-        char *buf,
-        size_t max) {
-    _library_tags_json_status_t *status = cls;
-    DIR *dir = status->dir;
-    const char *begin = "[";
-    const char *end = "]";
-    const char *quote = "\"";
-    const char *sep = ",";
+static char *_library_tags_json_next(void *cls) {
+    DIR *dir = cls;
     struct dirent *ent;
-
-    if (status->done) return MHD_CONTENT_READER_END_OF_STREAM;
-
-    if (pos == 0) {
-        memcpy(buf, begin, strlen(begin));
-        return strlen(begin);
-    }
 
     errno = 0;
     ent = readdir(dir);
-    if (ent == NULL) {
-        status->done = true;
-        memcpy(buf, end, strlen(end));
-        return strlen(end);
+    while (ent != NULL && (ent->d_type != DT_DIR || strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)) {
+        ent = readdir(dir);
     }
-
-    if (ent->d_type != DT_DIR || strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
-        return 0;
+    if (ent != NULL) {
+        return ent->d_name;
+    } else {
+        return NULL;
     }
-
-    int offset = 0;
-
-    if (pos != strlen(begin)) {
-        memcpy(buf + offset, sep, strlen(sep));
-        offset += strlen(sep);
-    }
-
-    memcpy(buf + offset, quote, strlen(quote));
-    offset += strlen(quote);
-
-    memcpy(buf + offset, ent->d_name, strlen(ent->d_name));
-    offset += strlen(ent->d_name);
-
-    memcpy(buf + offset, quote, strlen(quote));
-    offset += strlen(quote);
-
-    return offset;
 }
 
 static void _library_tags_json_free(void *cls) {
-    _library_tags_json_status_t *sts = cls;
-    DIR *dir = sts->dir;
+    DIR *dir = cls;
     closedir(dir);
-    free(sts);
 }
 
 static enum MHD_Result _handle_library(void *cls, struct MHD_Connection *connection,
@@ -489,11 +418,13 @@ static enum MHD_Result _handle_library(void *cls, struct MHD_Connection *connect
     DIR *dir = opendir(self->library_root);
     P_CHECK(dir, return MHD_NO);
 
-    _library_tags_json_status_t *sts = malloc(sizeof (_library_tags_json_status_t));
-    sts->dir = dir;
-    sts->done = false;
+    tn_json_string_iterator_t *dir_it = tn_json_string_iterator_new(dir, _library_tags_json_next, _library_tags_json_free);
 
-    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11, _library_tags_json, sts, _library_tags_json_free);
+    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
+            tn_json_string_array_callback,
+            dir_it,
+            tn_json_string_iterator_free
+            );
     P_CHECK(response, return MHD_NO);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_APPLICATION_JSON);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 Michele Comignano <comick@gmail.com>
+ * Copyright (c) 2020-2022 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
