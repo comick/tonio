@@ -1,1 +1,1 @@
-SUBDIRS = src www
+SUBDIRS = src www tests

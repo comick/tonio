@@ -16,7 +16,6 @@ define TONIO_INSTALL_INIT_SYSV
 endef
 
 $(eval $(autotools-package))
-$(eval $(host-autotools-package))
 
 tonio-deploy: tonio-rebuild
 	ssh root@$(target) '/etc/init.d/S15tonio stop'
