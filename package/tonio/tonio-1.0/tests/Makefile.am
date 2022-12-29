@@ -1,5 +1,5 @@
-TESTS = check_tonio
-check_PROGRAMS = check_tonio
-check_tonio_SOURCES = check_tonio.c
-check_tonio_CFLAGS = @CHECK_CFLAGS@
-check_tonio_LDADD = @CHECK_LIBS@
+TESTS = check_json
+check_PROGRAMS = check_json
+check_json_SOURCES = check_json.c
+check_json_CFLAGS = @CHECK_CFLAGS@
+check_json_LDADD = $(top_builddir)/src/json.o @CHECK_LIBS@

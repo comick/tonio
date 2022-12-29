@@ -28,6 +28,7 @@
 #include <stdbool.h>
 #include <confuse.h>
 
+#include "config.h"
 #include "tonio.h"
 #include "http.h"
 #include "media.h"
