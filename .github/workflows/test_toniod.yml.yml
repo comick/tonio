@@ -19,7 +19,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: Configure
         run: |
-          ./autoreconf -vis
+          cd package/tonio/tonio-1.0
+          autoreconf -vis
           ./configure --prefix=
       - name: Build
         run: |
