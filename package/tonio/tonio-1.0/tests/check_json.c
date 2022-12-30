@@ -13,12 +13,12 @@ static void _free_nothing(void *cls) {
 }
 
 START_TEST(test_empty_array) {
-    char * buf = malloc(sizeof (char) * 10);
+    char * buf = (char *) malloc(sizeof (char) * 10);
     tn_json_string_iterator_t *it = tn_json_string_iterator_new(NULL, _next_none, _free_nothing);
     uint64_t len = 0l;
 
     uint64_t n;
-    while ((n = tn_json_string_array_callback(it, len, char *buf, 1000000)) != MHD_CONTENT_READER_END_OF_STREAM) {
+    while ((n = tn_json_string_array_callback(it, len, buf, 1000000)) != MHD_CONTENT_READER_END_OF_STREAM) {
         len += n;
     }
 
