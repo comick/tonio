@@ -1,0 +1,40 @@
+name: Tonio build and test
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install libvlc-dev libasound2-dev libconfuse-dev libgpiod-dev build-essential
+      - uses: actions/checkout@v2
+      - name: Configure
+        run: |
+          ./autoreconf -vis
+          ./configure --prefix=
+      - name: Build
+        run: |
+          make
+      - name: Install to ~/tmp and Inspect
+        run: |
+          DESTDIR=~/tmp make install-strip
+          tree ~/tmp
+      - name: Run Unit Tests
+        run: |
+          make check || (cat test/test-suite.log; false)
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v2
+        with:
+          name: tonio-test
+          path: test/*
+
+        
