@@ -11,6 +11,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: package/tonio/tonio-1.0
     steps:
       - name: Install dependencies
         run: |
@@ -19,7 +22,6 @@ jobs:
       - uses: actions/checkout@v2
       - name: Configure
         run: |
-          cd package/tonio/tonio-1.0
           autoreconf -vis
           ./configure --prefix=
       - name: Build
