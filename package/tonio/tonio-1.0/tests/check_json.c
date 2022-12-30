@@ -1,6 +1,7 @@
 #include <check.h>
 #include <microhttpd.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "../src/json.h"
 
