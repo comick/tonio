@@ -15,7 +15,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install libvlc-dev libasound2-dev libconfuse-dev libgpiod-dev libmicrohttpd-dev libiw-dev build-essential
+          sudo apt-get -y install libvlc-dev libasound2-dev libconfuse-dev libgpiod-dev libmicrohttpd-dev libiw-dev check build-essential
       - uses: actions/checkout@v2
       - name: Configure
         run: |
