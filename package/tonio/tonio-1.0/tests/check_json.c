@@ -29,6 +29,21 @@ START_TEST(test_empty_array) {
 
 END_TEST
 
+Suite * json_suite(void) {
+    Suite *s;
+    TCase *tc_core;
+
+    s = suite_create("JSON");
+
+    /* Core test case */
+    tc_core = tcase_create("Empty Array");
+
+    tcase_add_test(tc_core, test_empty_array);
+    suite_add_tcase(s, tc_core);
+
+    return s;
+
+}
 
 int main(void) {
     return 0;
