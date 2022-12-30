@@ -11,33 +11,34 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: package/tonio/tonio-1.0
     steps:
       - name: Install dependencies
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install libvlc-dev libasound2-dev libconfuse-dev libgpiod-dev libmicrohttpd-dev build-essential
+          sudo apt-get -y install libvlc-dev libasound2-dev libconfuse-dev libgpiod-dev build-essential
       - uses: actions/checkout@v2
       - name: Configure
         run: |
+          cd package/tonio/tonio-1.0
           autoreconf -vis
           ./configure --prefix=
       - name: Build
         run: |
+          cd package/tonio/tonio-1.0
           make
       - name: Install to ~/tmp and Inspect
         run: |
+          cd package/tonio/tonio-1.0
           DESTDIR=~/tmp make install-strip
           tree ~/tmp
       - name: Run Unit Tests
         run: |
+          cd package/tonio/tonio-1.0
           make check || (cat test/test-suite.log; false)
       - name: Upload Test Results
         uses: actions/upload-artifact@v2
         with:
           name: tonio-test
-          path: test/*
+          path: package/tonio/tonio-1.0/tests/*
 
         
