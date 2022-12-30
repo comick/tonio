@@ -1,4 +1,5 @@
 AC_INIT([tonio], [1.0], [mcdev@playlinux.net])
+AM_PROG_AR
 AM_INIT_AUTOMAKE([-Werror -Wall foreign])
 AC_PROG_LIBTOOL
 AC_PROG_CC
