@@ -1,5 +1,6 @@
 AC_INIT([tonio], [1.0], [mcdev@playlinux.net])
 AM_INIT_AUTOMAKE([-Werror -Wall foreign])
+LT_INIT
 AC_PROG_CC
 PKG_PROG_PKG_CONFIG
 PKG_CHECK_MODULES([DEPENDENCIES], [libmicrohttpd >= 0.9.72 libvlc alsa libconfuse libgpiod])
