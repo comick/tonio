@@ -303,7 +303,7 @@ static enum MHD_Result _handle_log(void *cls, struct MHD_Connection *connection,
 
     if (MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, _handle_log_offset_arg, &log_offset) > 0) {
         if (log_offset >= sz) {
-            syslog(LOG_DEBUG, "Offset longer than the log itself: %lld vs %lld", log_offset, sz);
+            syslog(LOG_DEBUG, "Offset longer than the log itself: %lld vs %lld", (unsigned long long) log_offset, (unsigned long long) sz);
             log_offset = 0;
             // TODO this is whensyslog is rotated/flushed. send some header so html restart log thing.
         }
