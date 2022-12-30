@@ -1,5 +1,6 @@
 #include <check.h>
 #include <microhttpd.h>
+#include <stdio.h>
 
 #include "../src/json.h"
 
@@ -21,7 +22,7 @@ START_TEST(test_empty_array) {
         len += n;
     }
 
-    printf("%s", buff);
+    printf("%s", buf);
 
 }
 
