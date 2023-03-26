@@ -5,7 +5,7 @@ AC_PROG_LIBTOOL
 AC_PROG_CC
 PKG_PROG_PKG_CONFIG
 PKG_CHECK_MODULES([DEPENDENCIES], [libmicrohttpd >= 0.9.72 libvlc alsa libconfuse libgpiod])
-PKG_CHECK_MODULES([CHECK], [check], [AC_MSG_NOTICE([Check found])], [AC_MSG_NOTICE([Check not found)])
+PKG_CHECK_MODULES([CHECK], [check], [AC_MSG_NOTICE([Check found])], [AC_MSG_NOTICE([Check not found])])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
     Makefile
