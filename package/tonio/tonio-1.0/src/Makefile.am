@@ -5,5 +5,5 @@ tonio_CFLAGS = -g -Werror -Wall -Wextra -Wno-unused -pedantic @DEPENDENCIES_CFLA
 tonio_LDADD = -lm -liw @DEPENDENCIES_LIBS@
 
 # for testing
-lib_LTLIBRARIES = libjson.la
-libjson_la_SOURCES = json.c json.h
+lib_LTLIBRARIES = json.la
+json_la_SOURCES = json.c json.h
