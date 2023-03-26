@@ -6,4 +6,4 @@ tonio_LDADD = -lm -liw @DEPENDENCIES_LIBS@
 
 # for testing
 lib_LTLIBRARIES = libjson.la
-json_la_SOURCES = json.c json.h
+libjson_la_SOURCES = json.c json.h
