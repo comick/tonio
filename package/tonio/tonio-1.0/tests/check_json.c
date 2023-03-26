@@ -9,9 +9,15 @@ static char *_next_none(void *cls) {
     return NULL;
 }
 
+static char *_next_count_down(void *cls) {
+    char *n = (char *) n;
+    return ((*n)--) == '0' ? NULL : n;
+}
+
 static void _free_nothing(void *cls) {
 
 }
+
 
 START_TEST(test_empty_array) {
     char * buf = (char *) malloc(sizeof (char) * 10);
@@ -29,6 +35,24 @@ START_TEST(test_empty_array) {
 
 END_TEST
 
+
+START_TEST(test_non_empty_array) {
+    char * buf = (char *) malloc(sizeof (char) * 10);
+    char cls = '9';
+    tn_json_string_iterator_t *it = tn_json_string_iterator_new(&cls, _next_count_down, _free_nothing);
+    uint64_t len = 0l;
+
+    uint64_t n;
+    while ((n = tn_json_string_array_callback(it, len, buf, 1000000)) != MHD_CONTENT_READER_END_OF_STREAM) {
+        len += n;
+    }
+
+    printf("%s", buf);
+
+}
+END_TEST
+
+
 Suite * json_suite(void) {
     Suite *s;
     TCase *tc_core;
@@ -39,6 +63,7 @@ Suite * json_suite(void) {
     tc_core = tcase_create("Empty Array");
 
     tcase_add_test(tc_core, test_empty_array);
+    tcase_add_test(tc_core, test_non_empty_array);
     suite_add_tcase(s, tc_core);
 
     return s;
