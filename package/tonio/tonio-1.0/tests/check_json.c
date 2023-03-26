@@ -1,5 +1,7 @@
 #include <check.h>
 #include <microhttpd.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "../src/json.h"
 
@@ -12,22 +14,47 @@ static void _free_nothing(void *cls) {
 }
 
 START_TEST(test_empty_array) {
-    char * buf = malloc(sizeof (char) * 10);
+    char * buf = (char *) malloc(sizeof (char) * 10);
     tn_json_string_iterator_t *it = tn_json_string_iterator_new(NULL, _next_none, _free_nothing);
     uint64_t len = 0l;
 
     uint64_t n;
-    while ((n = tn_json_string_array_callback(it, len, char *buf, 1000000)) != MHD_CONTENT_READER_END_OF_STREAM) {
+    while ((n = tn_json_string_array_callback(it, len, buf, 1000000)) != MHD_CONTENT_READER_END_OF_STREAM) {
         len += n;
     }
 
-    printf("%s", buff);
+    printf("%s", buf);
 
 }
 
 END_TEST
 
+Suite * json_suite(void) {
+    Suite *s;
+    TCase *tc_core;
+
+    s = suite_create("JSON");
+
+    /* Core test case */
+    tc_core = tcase_create("Empty Array");
+
+    tcase_add_test(tc_core, test_empty_array);
+    suite_add_tcase(s, tc_core);
+
+    return s;
+
+}
 
 int main(void) {
-    return 0;
+    int number_failed;
+    Suite *s;
+    SRunner *sr;
+
+    s = json_suite();
+    sr = srunner_create(s);
+
+    srunner_run_all(sr, CK_NORMAL);
+    number_failed = srunner_ntests_failed(sr);
+    srunner_free(sr);
+    return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }

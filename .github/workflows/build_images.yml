@@ -1,4 +1,4 @@
-name: Tonio CI
+name: Build supported images
 
 on:
   push:
@@ -10,9 +10,9 @@ env:
   buildroot-version: 2023.02
 
 jobs:
-  build:
+  build-supported-images:
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     
     strategy:
         matrix:
@@ -49,7 +49,7 @@ jobs:
         make
     
     - name: Upload Images
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.config }} images
         path: |
@@ -64,7 +64,7 @@ jobs:
         make graph-build
 
     - name: Upload Graphs
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.config }} graphs
         path: 'buildroot-${{ env.buildroot-version }}/output/graphs'
