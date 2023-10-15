@@ -5,3 +5,7 @@ library/*
 **/tonio.conf
 **/interfaces
 **/authorized_keys
+ltmain.sh
+ar-lib
+libtool
+configure~
