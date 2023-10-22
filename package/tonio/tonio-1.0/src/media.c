@@ -30,6 +30,7 @@
 #include <sys/time.h>
 #include <ctype.h>
 #include <string.h>
+#include <sys/syslog.h>
 
 #include "uthash.h"
 
@@ -38,7 +39,7 @@
 #include "http.h"
 #include "tonio.h"
 
-#define AUDIO_OUTPUT "alsa"
+#define DUMMY_AUDIO_OUT "dummy"
 
 #define PLAYLIST_SUFFIX ".m3u"
 #define PLAYLIST_SUFFIX_LEN (strlen(PLAYLIST_SUFFIX))
@@ -65,6 +66,7 @@ struct tn_media {
     snd_mixer_elem_t* mixer_elem;
     char *positions_filepath;
     char *tmp_positions_filepath_tpl;
+    char *audio_out;
     float volume_max;
     sem_t pos_file_mutex;
 };
@@ -90,28 +92,31 @@ tn_media_t *tn_media_init(cfg_t *cfg) {
     self->mixer_elem = NULL;
     self->positions_filepath = NULL;
     self->volume_max = cfg_getfloat(cfg, CFG_VOLUME_MAX);
+    self->audio_out = cfg_getstr(cfg, CFG_MEDIA_AUDIO_OUT);
 
     sem_init(&self->pos_file_mutex, 0, 1);
 
     // libvlc for playback
     const char *vlc_args[] = {
-        "-I", "dummy", "--aout", AUDIO_OUTPUT
+        "-I", "dummy", "--aout", self->audio_out
     };
     self->vlc = libvlc_new(sizeof (vlc_args) / sizeof (vlc_args[0]), vlc_args);
     P_CHECK(self->vlc, goto init_error);
 
-    I_CHECK(snd_mixer_open(&(self->mixer), 0), goto init_error);
+    if (strncmp(self->audio_out, DUMMY_AUDIO_OUT, strlen(DUMMY_AUDIO_OUT)) != 0) {
+        I_CHECK(snd_mixer_open(&(self->mixer), 0), goto init_error);
 
-    I_CHECK(snd_mixer_attach(self->mixer, cfg_getstr(cfg, CFG_MIXER_CARD)), goto init_error);
-    I_CHECK(snd_mixer_selem_register(self->mixer, NULL, NULL), goto init_error);
-    I_CHECK(snd_mixer_load(self->mixer), goto init_error);
+        I_CHECK(snd_mixer_attach(self->mixer, cfg_getstr(cfg, CFG_MIXER_CARD)), goto init_error);
+        I_CHECK(snd_mixer_selem_register(self->mixer, NULL, NULL), goto init_error);
+        I_CHECK(snd_mixer_load(self->mixer), goto init_error);
 
-    snd_mixer_selem_id_alloca(&selem_id);
-    snd_mixer_selem_id_set_index(selem_id, 0);
-    snd_mixer_selem_id_set_name(selem_id, cfg_getstr(cfg, CFG_MIXER_SELEM));
-    self->mixer_elem = snd_mixer_find_selem(self->mixer, selem_id);
-    //snd_mixer_selem_id_free(&selem_id);
-    P_CHECK(self->mixer_elem, goto init_error);
+        snd_mixer_selem_id_alloca(&selem_id);
+        snd_mixer_selem_id_set_index(selem_id, 0);
+        snd_mixer_selem_id_set_name(selem_id, cfg_getstr(cfg, CFG_MIXER_SELEM));
+        self->mixer_elem = snd_mixer_find_selem(self->mixer, selem_id);
+        //snd_mixer_selem_id_free(&selem_id);
+        P_CHECK(self->mixer_elem, goto init_error);
+    }
 
     // effect is alsa volume to max configured
     tn_media_volume_up(self);
@@ -151,7 +156,7 @@ tn_media_t *tn_media_init(cfg_t *cfg) {
         syslog(LOG_INFO, "Loaded %d stream positions from %s", i, self->positions_filepath);
     }
 
-    syslog(LOG_INFO, "Media sub-system initialized");
+    syslog(LOG_INFO, "Media sub-system initialized: %s", self->audio_out);
     return self;
 
 init_error:
@@ -194,7 +199,7 @@ static int _apply_saved_position(tn_media_t *self, libvlc_media_player_t * media
     return 0;
 }
 
-static void _save_stream_positions_onchange(const struct libvlc_event_t *event, void *data) {
+static void _save_stream_positions_callback(const struct libvlc_event_t *event, void *data) {
     tn_media_t *self = (tn_media_t *) data;
 
     struct timeval now;
@@ -203,10 +208,9 @@ static void _save_stream_positions_onchange(const struct libvlc_event_t *event, 
     tn_media_position_t *media_pos = NULL;
     HASH_FIND_INT(self->media_positions, &(self->curr_card_id), media_pos);
 
-    if (media_pos != NULL && now.tv_sec - media_pos->time_saved.tv_sec >= 2) {
+    if (event->type == libvlc_MediaPlayerPlaying || (media_pos != NULL && now.tv_sec - media_pos->time_saved.tv_sec >= 2)) {
         _save_stream_positions(self);
     }
-
 }
 
 bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
@@ -256,6 +260,10 @@ bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
 
     I_CHECK(sem_init(&is_playing, 0, 0), goto play_cleanup);
     libvlc_event_manager_t *evt_manager = libvlc_media_player_event_manager(media_player);
+
+    // Fixes when playing card from beginning, when event position changed is not received. 
+    I_CHECK(libvlc_event_attach(evt_manager, libvlc_MediaPlayerPlaying, _save_stream_positions_callback, self), goto play_cleanup);
+
     I_CHECK(libvlc_event_attach(evt_manager, libvlc_MediaPlayerPlaying, _post_is_playing, &is_playing), goto play_cleanup);
 
     if (saved_position == NULL || !_apply_saved_position(self, media_player, tag_playlist_path, saved_position)) {
@@ -266,8 +274,8 @@ bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
     // Listening for position change won't work until playing.
     sem_wait(&is_playing);
     libvlc_event_detach(evt_manager, libvlc_MediaPlayerPlaying, _post_is_playing, &is_playing);
-    // TODO fix, when playing card from beginning, event position changed is not received.
-    I_CHECK(libvlc_event_attach(evt_manager, libvlc_MediaPlayerPositionChanged, _save_stream_positions_onchange, self), goto play_cleanup);
+
+    I_CHECK(libvlc_event_attach(evt_manager, libvlc_MediaPlayerPositionChanged, _save_stream_positions_callback, self), goto play_cleanup);
 
     sem_destroy(&is_playing);
 
@@ -337,12 +345,18 @@ void tn_media_previous(tn_media_t *self) {
 }
 
 void tn_media_volume_down(tn_media_t *self) {
+    if (self->mixer_elem == NULL) {
+        return;
+    }
     double vol_curr = get_normalized_playback_volume(self->mixer_elem, SND_MIXER_SCHN_UNKNOWN);
     vol_curr = fmax(vol_curr - 0.05, 0.0);
     set_normalized_playback_volume(self->mixer_elem, SND_MIXER_SCHN_UNKNOWN, vol_curr, 0);
 }
 
 void tn_media_volume_up(tn_media_t *self) {
+    if (self->mixer_elem == NULL) {
+        return;
+    }
     double vol_curr = get_normalized_playback_volume(self->mixer_elem, SND_MIXER_SCHN_UNKNOWN);
     vol_curr = fmin(vol_curr + 0.05, self->volume_max);
     set_normalized_playback_volume(self->mixer_elem, SND_MIXER_SCHN_UNKNOWN, vol_curr, 0);
@@ -373,7 +387,7 @@ void _save_event_detach(tn_media_t *self) {
     curr_media_player = libvlc_media_list_player_get_media_player(self->media_list_player);
     P_CHECK(curr_media_player, return);
     libvlc_event_manager_t *evt_manager = libvlc_media_player_event_manager(curr_media_player);
-    libvlc_event_detach(evt_manager, libvlc_MediaPlayerPositionChanged, _save_stream_positions_onchange, self);
+    libvlc_event_detach(evt_manager, libvlc_MediaPlayerPositionChanged, _save_stream_positions_callback, self);
 }
 
 static tn_media_position_t *_save_stream_positions(tn_media_t *self) {

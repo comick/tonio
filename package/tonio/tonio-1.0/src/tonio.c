@@ -37,6 +37,7 @@
 static cfg_opt_t config_opts[] = {
     CFG_BOOL(CFG_FACTORY_NEW, cfg_true, CFGF_NONE),
     CFG_STR(CFG_MEDIA_ROOT, "/mnt/media", CFGF_NONE),
+    CFG_STR(CFG_MEDIA_AUDIO_OUT, "alsa", CFGF_NONE),
     CFG_STR(CFG_GPIOD_CHIP_NAME, "gpiochip0", CFGF_NONE),
     CFG_STR(CFG_MIXER_CARD, "default", CFGF_NONE),
     CFG_STR(CFG_MIXER_SELEM, "Headphone", CFGF_NONE),
