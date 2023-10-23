@@ -73,7 +73,7 @@ ssize_t tn_json_string_array_callback(void *cls, uint64_t pos, char *buf, size_t
  
     if (next == NULL) {
         it->done = true;
-        memcpy(buf + pos, JSON_ARRAY_END, strlen(JSON_ARRAY_END));
+        memcpy(buf, JSON_ARRAY_END, strlen(JSON_ARRAY_END));
         return strlen(JSON_ARRAY_END);
     } else {
         it->pos++;
@@ -82,17 +82,17 @@ ssize_t tn_json_string_array_callback(void *cls, uint64_t pos, char *buf, size_t
     int offset = 0;
 
     if (pos != strlen(JSON_ARRAY_BEGIN)) {
-        memcpy(buf + pos + offset, JSON_ITEM_SEP, strlen(JSON_ITEM_SEP));
+        memcpy(buf + offset, JSON_ITEM_SEP, strlen(JSON_ITEM_SEP));
         offset += strlen(JSON_ITEM_SEP);
     }
-    memcpy(buf + pos + offset, JSON_QUOTE, strlen(JSON_QUOTE));
+    memcpy(buf + offset, JSON_QUOTE, strlen(JSON_QUOTE));
     offset += strlen(JSON_QUOTE);
 
-    memcpy(buf + pos + offset, next, strlen(next));
+    memcpy(buf + offset, next, strlen(next));
     offset += strlen(next);
-    free(next);
+    //free(next); // TODO free somewhere
 
-    memcpy(buf + pos + offset, JSON_QUOTE, strlen(JSON_QUOTE));
+    memcpy(buf + offset, JSON_QUOTE, strlen(JSON_QUOTE));
     offset += strlen(JSON_QUOTE);
 
     return offset;

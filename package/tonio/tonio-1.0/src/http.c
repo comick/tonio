@@ -368,14 +368,14 @@ static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
 
     tn_json_string_iterator_t *iwlist_it = tn_json_string_iterator_new(sts, _iwlist_json_next, _iwlist_json_free);
 
-    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
+    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 35,
             tn_json_string_array_callback,
             iwlist_it,
             tn_json_string_iterator_free
             );
 
     P_CHECK(response, return MHD_NO);
-    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_APPLICATION_JSON);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);
 
@@ -417,7 +417,7 @@ static enum MHD_Result _handle_library(void *cls, struct MHD_Connection *connect
 
     DIR *dir = opendir(self->library_root);
     P_CHECK(dir, return MHD_NO);
-
+    
     tn_json_string_iterator_t *dir_it = tn_json_string_iterator_new(dir, _library_tags_json_next, _library_tags_json_free);
 
     response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
