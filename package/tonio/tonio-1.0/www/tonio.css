@@ -118,11 +118,12 @@ li a:hover:not(.active) {
 }
 
 .track-del {
+    font-size: x-large;
     color: #ff5555;
 }
 
-.track-up, .track-down {
-    color: #bd93f9;
+.track-up, .track-down, .pl-title {
+    font-size: large;
 }
 
 .button {

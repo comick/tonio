@@ -50,7 +50,6 @@ tn_json_string_iterator_t *tn_json_string_iterator_new(void * cls,
 }
 
 void tn_json_string_iterator_free(void *cls) {
-    fprintf(stderr, "mi chiamano itrar");
     tn_json_string_iterator_t *it = (tn_json_string_iterator_t *) cls;
     it->free(it->cls);
     free(it);

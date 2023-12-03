@@ -1,5 +1,7 @@
 factory-new = true
 
+http-port = 80
+
 media-root ='/mnt/media/'
 
 gpiod-chip-name = 'gpiochip0'

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2022 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2020-2023 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -18,7 +18,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "mfrc522.h"
 #include <unistd.h>
 #include <time.h>
 #include <sys/types.h>
@@ -32,10 +31,13 @@
 #include "tonio.h"
 #include "http.h"
 #include "media.h"
+#include "input.h"
 
 
 static cfg_opt_t config_opts[] = {
     CFG_BOOL(CFG_FACTORY_NEW, cfg_true, CFGF_NONE),
+    CFG_INT(CFG_HTTP_PORT, 80, CFGF_NONE),
+    CFG_STR(CFG_HTTP_ROOT, "/usr/share/tonio/www", CFGF_NONE),
     CFG_STR(CFG_MEDIA_ROOT, "/mnt/media", CFGF_NONE),
     CFG_STR(CFG_MEDIA_AUDIO_OUT, "alsa", CFGF_NONE),
     CFG_STR(CFG_GPIOD_CHIP_NAME, "gpiochip0", CFGF_NONE),
@@ -53,15 +55,10 @@ static cfg_opt_t config_opts[] = {
 
 int main(int argc, char** argv) {
 
-    MFRC522_Status_t ret;
-    uint8_t ret_int;
     //Recognized card ID
     uint8_t card_id[5] = {0x00,};
     uint8_t selected_card_id[5] = {0x00,};
-    struct gpiod_chip *gpio_chip = NULL;
-    struct gpiod_line *gpio_mfrc522_line, *vol_up_line, *vol_down_line, *track_next_line, *track_prev_line = NULL;
-
-    uint8_t default_key[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+   
     struct timespec poll_interval = {
         .tv_sec = 0,
         .tv_nsec = 50/* msec */ * 1000000
@@ -77,34 +74,15 @@ int main(int argc, char** argv) {
     cfg_t *cfg = cfg_init(config_opts, CFGF_NONE);
 
     if (!cfg || cfg_parse(cfg, argv[1]) == CFG_PARSE_ERROR) {
-        syslog(LOG_CRIT, "Cannor parse configuration at %s.", argv[1]);
+        syslog(LOG_CRIT, "Cannot parse configuration at %s.", argv[1]);
         return EXIT_FAILURE;
     }
 
     tn_media_t *media = tn_media_init(cfg);
     P_CHECK(media, return EXIT_FAILURE);
 
-    P_CHECK(gpio_chip = gpiod_chip_open_by_name(cfg_getstr(cfg, CFG_GPIOD_CHIP_NAME)), return EXIT_FAILURE);
-    P_CHECK(gpio_mfrc522_line = gpiod_chip_get_line(gpio_chip, cfg_getint(cfg, CFG_MFRC522_SWITCH)), return EXIT_FAILURE);
-
-    ret = MFRC522_Init(gpio_mfrc522_line, cfg_getstr(cfg, CFG_MFRC522_SPI_DEV), 'B');
-
-    if (ret < 0) {
-        syslog(LOG_CRIT, "RFID Failed to initialize");
-        exit(EXIT_FAILURE);
-    }
-    syslog(LOG_INFO, "RFID reader successfully initialized");
-
-    P_CHECK(track_next_line = gpiod_chip_get_line(gpio_chip, cfg_getint(cfg, CFG_BTN_TRACK_NEXT)), return EXIT_FAILURE);
-    P_CHECK(track_prev_line = gpiod_chip_get_line(gpio_chip, cfg_getint(cfg, CFG_BTN_TRACK_PREVIOUS)), return EXIT_FAILURE);
-    P_CHECK(vol_up_line = gpiod_chip_get_line(gpio_chip, cfg_getint(cfg, CFG_BTN_VOLUME_UP)), return EXIT_FAILURE);
-    P_CHECK(vol_down_line = gpiod_chip_get_line(gpio_chip, cfg_getint(cfg, CFG_BTN_VOLUME_DOWN)), return EXIT_FAILURE);
-
-    I_CHECK(gpiod_line_request_input(track_next_line, "tonio"), return EXIT_FAILURE);
-    I_CHECK(gpiod_line_request_input(track_prev_line, "tonio"), return EXIT_FAILURE);
-    I_CHECK(gpiod_line_request_input(vol_up_line, "tonio"), return EXIT_FAILURE);
-    I_CHECK(gpiod_line_request_input(vol_down_line, "tonio"), return EXIT_FAILURE);
-
+    tn_input_t *input = tn_input_init(cfg);
+    
     tn_http_t *http = tn_http_init(media, selected_card_id, cfg);
     P_CHECK(http, return EXIT_FAILURE);
 
@@ -112,53 +90,49 @@ int main(int argc, char** argv) {
 
         syslog(LOG_INFO, "Waiting for card...");
 
-        while (MFRC522_Check(card_id) != MI_OK) {
+        while (!tn_input_tag_poll(input, card_id)) {
             nanosleep(&poll_interval, NULL);
         }
 
         syslog(LOG_INFO, "Card uid detected: %02X%02X%02X%02X", card_id[0], card_id[1], card_id[2], card_id[3]);
 
-        if ((ret_int = MFRC522_SelectTag(card_id)) == 0) {
+        if (!tn_input_tag_select(input, card_id)) {
             syslog(LOG_ERR, "Card select failed");
         } else {
-
-            syslog(LOG_INFO, "Card type: %s", MFRC522_TypeToString(MFRC522_ParseType(ret_int)));
 
             memcpy(&selected_card_id, &card_id, sizeof (card_id));
 
             if (tn_media_play(media, card_id)) {
 
-                int last_prev_state = gpiod_line_get_value(track_prev_line);
-                int last_next_state = gpiod_line_get_value(track_next_line);
+                int last_prev_state = tn_input_btn_prev(input);
+                int last_next_state = tn_input_btn_next(input);
 
                 // Does some auth to make sure card still there.
-                while (MFRC522_Auth((uint8_t) PICC_AUTHENT1A, (uint8_t) 0,
-                        (uint8_t*) default_key, (uint8_t*) card_id) == MI_OK) {
+                while (tn_input_tag_check(input, card_id)) {
                     nanosleep(&poll_interval, NULL);
 
-                    int current_prev_state = gpiod_line_get_value(track_prev_line);
+                    int current_prev_state = tn_input_btn_prev(input);
                     if (current_prev_state == 1 && last_prev_state == 0) {
                         tn_media_previous(media);
                     }
                     last_prev_state = current_prev_state;
 
-                    int current_next_state = gpiod_line_get_value(track_next_line);
+                    int current_next_state = tn_input_btn_next(input);
                     if (current_next_state == 1 && last_next_state == 0) {
                         tn_media_next(media);
                     }
                     last_next_state = current_next_state;
 
                     // volume kept continuous, more pleasant. TODO maybe add some timer to make is slower
-                    if (gpiod_line_get_value(vol_up_line) == 1) tn_media_volume_down(media);
-                    if (gpiod_line_get_value(vol_down_line) == 1) tn_media_volume_up(media);
+                    if (tn_input_btn_vol_down(input) == 1) tn_media_volume_down(media);
+                    if (tn_input_btn_vol_up(input) == 1) tn_media_volume_up(media);
 
                 }
 
             } else {
                 // Does some auth to make sure card still there.
                 // Allows http to know the card is there
-                while (MFRC522_Auth((uint8_t) PICC_AUTHENT1A, (uint8_t) 0,
-                        (uint8_t*) default_key, (uint8_t*) card_id) == MI_OK) {
+                while (tn_input_tag_check(input, card_id)) {
                     nanosleep(&poll_interval, NULL);
                 }
 
@@ -172,8 +146,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    MFRC522_Halt();
-
+    tn_input_destroy(input);
     tn_media_destroy(media);
     tn_http_stop(http);
 
