@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2022 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2020-2023 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -33,7 +33,9 @@
 #include "media.h"
 #include "json.h"
 
-#define STATIC_RES_ROOT "/usr/share/tonio/www"
+// TODO make configurable
+#define WLAN_IF "wlan0"
+#define SYSLOG_PATH "/var/log/messages"
 
 #define MIME_APPLICATION_JSON "application/json"
 #define MIME_TEXT_PLAIN "text/plain"
@@ -56,7 +58,7 @@
 #define LIBRARY_URL_PATH "/library"
 
 #define CFG_SETBOOL(K) if (strcmp(key, K) == 0) { \
-    cfg_setbool(cfg, K, strcmp("true", d) == 0 ? cfg_true : cfg_false); \
+    cfg_setbool(cfg, K, strcmp(JSON_TRUE, d) == 0 ? cfg_true : cfg_false); \
 }
 
 #define CFG_SETINT(K) if (strcmp(key, K) == 0) { \
@@ -69,6 +71,9 @@
 
 struct tn_http {
     char *library_root;
+
+    int http_port;
+    char *http_root;
 
     struct MHD_Daemon *mhd_daemon;
     bool internet_connected;
@@ -188,10 +193,10 @@ static enum MHD_Result _handle_settings(void *cls, struct MHD_Connection *connec
     int iw_sock = iw_sockets_open();
     I_CHECK(iw_sock, return MHD_NO);
     wireless_config wconfig;
-    I_CHECK(iw_get_basic_config(iw_sock, "wlan0", &wconfig), return MHD_NO);
+    I_CHECK(iw_get_basic_config(iw_sock, WLAN_IF, &wconfig), return MHD_NO);
     iw_sockets_close(iw_sock);
 
-    char *factory_new = cfg_getbool(self->cfg, CFG_FACTORY_NEW) == cfg_true ? "true" : "false";
+    char *factory_new = cfg_getbool(self->cfg, CFG_FACTORY_NEW) == cfg_true ? JSON_TRUE : JSON_FALSE;
     long pin_prev = cfg_getint(self->cfg, CFG_BTN_TRACK_PREVIOUS);
     long pin_next = cfg_getint(self->cfg, CFG_BTN_TRACK_NEXT);
     long pin_vol_up = cfg_getint(self->cfg, CFG_BTN_VOLUME_UP);
@@ -228,6 +233,7 @@ static enum MHD_Result _handle_static(void *cls, struct MHD_Connection *connecti
     char *static_filename = NULL;
     char *mime_str = MIME_TEXT_PLAIN;
     size_t static_filename_sz = 0;
+    tn_http_t *self = (tn_http_t *) cls;
 
     syslog(LOG_DEBUG, "Static or other requested: %s", url);
 
@@ -237,9 +243,9 @@ static enum MHD_Result _handle_static(void *cls, struct MHD_Connection *connecti
 
     size_t url_len = strlen(url);
 
-    static_filename_sz = strlen(STATIC_RES_ROOT) + url_len + 1;
+    static_filename_sz = strlen(self->http_root) + url_len + 1;
     static_filename = malloc(static_filename_sz);
-    snprintf(static_filename, static_filename_sz, "%s%s", STATIC_RES_ROOT, url);
+    snprintf(static_filename, static_filename_sz, "%s%s", self->http_root, url);
 
     tmp_fd = open(static_filename, O_RDONLY);
 
@@ -297,7 +303,7 @@ static enum MHD_Result _handle_log(void *cls, struct MHD_Connection *connection,
     syslog(LOG_DEBUG, "Log requested");
 
     // For this to really work, syslogd should have rotation disable.
-    int log_fd = open("/var/log/messages", O_RDONLY);
+    int log_fd = open(SYSLOG_PATH, O_RDONLY);
     off_t sz = lseek(log_fd, 0, SEEK_END);
     I_CHECK(sz, return MHD_NO);
 
@@ -359,8 +365,8 @@ static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
 
     sock = iw_sockets_open();
     I_CHECK(sock, return MHD_NO);
-    I_CHECK(iw_get_range_info(sock, "wlan0", &range), return MHD_NO);
-    I_CHECK(iw_scan(sock, "wlan0", range.we_version_compiled, &head), return MHD_NO);
+    I_CHECK(iw_get_range_info(sock, WLAN_IF, &range), return MHD_NO);
+    I_CHECK(iw_scan(sock, WLAN_IF, range.we_version_compiled, &head), return MHD_NO);
 
     _iwlist_json_status_t *sts = malloc(sizeof (_iwlist_json_status_t));
     sts->scan_result = head.result;
@@ -414,10 +420,10 @@ static enum MHD_Result _handle_library(void *cls, struct MHD_Connection *connect
     enum MHD_Result ret;
 
     syslog(LOG_DEBUG, "Library requested");
-
+    syslog(LOG_ERR, "%s", self->library_root);
     DIR *dir = opendir(self->library_root);
     P_CHECK(dir, return MHD_NO);
-    
+
     tn_json_string_iterator_t *dir_it = tn_json_string_iterator_new(dir, _library_tags_json_next, _library_tags_json_free);
 
     response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
@@ -512,17 +518,19 @@ tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg
     self->media = media;
     self->selected_card_id = selected_card_id;
     self->library_root = cfg_getstr(cfg, CFG_MEDIA_ROOT);
+    self->http_port = cfg_getint(cfg, CFG_HTTP_PORT);
+    self->http_root = cfg_getstr(cfg, CFG_HTTP_ROOT);
     self->cfg = cfg;
 
     self->internet_connected = false;
 
     self->mhd_daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD,
-            PORT, NULL, NULL,
+            self->http_port, NULL, NULL,
             &tn_http_handle_request, self,
             MHD_OPTION_END);
     P_CHECK(self->mhd_daemon, goto http_init_cleanup);
 
-    syslog(LOG_INFO, "HTTP Initialized on port %d", PORT);
+    syslog(LOG_INFO, "HTTP Initialized on port %d", self->http_port);
     return self;
 
 http_init_cleanup:

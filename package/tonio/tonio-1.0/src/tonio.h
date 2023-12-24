@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2022 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2020-2023 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -25,6 +25,8 @@
 #include <string.h>
 
 #define CFG_FACTORY_NEW "factory-new"
+#define CFG_HTTP_PORT "http-port"
+#define CFG_HTTP_ROOT "http-root"
 #define CFG_MEDIA_ROOT "media-root"
 #define CFG_MEDIA_AUDIO_OUT "media-audio-out"
 #define CFG_GPIOD_CHIP_NAME "gpiod-chip-name"

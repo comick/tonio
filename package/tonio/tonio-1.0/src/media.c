@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2022 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2020-2023 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -254,7 +254,7 @@ bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
     libvlc_media_list_player_set_media_list(self->media_list_player, self->media_list);
 
     libvlc_media_list_player_set_playback_mode(self->media_list_player, libvlc_playback_mode_loop);
-
+    
     tn_media_position_t *saved_position = NULL;
     HASH_FIND_INT(self->media_positions, &(self->curr_card_id), saved_position);
 

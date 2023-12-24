@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2023 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2023 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -16,18 +16,26 @@
  * along with Tonio.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef HTTP_H
-#define HTTP_H
+#ifndef INPUT_H
+#define INPUT_H
 
-#include <microhttpd.h>
+#include <stdbool.h>
 #include <confuse.h>
 
-#include "media.h"
+typedef struct tn_input tn_input_t;
 
-typedef struct tn_http tn_http_t;
+tn_input_t *tn_input_init(cfg_t *cfg);
 
-tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg);
-void tn_http_stop(tn_http_t *self);
+bool tn_input_tag_poll(tn_input_t *, uint8_t *);
+bool tn_input_tag_check(tn_input_t *, uint8_t *);
+bool tn_input_tag_select(tn_input_t *, uint8_t *);
 
-#endif /* HTTP_H */
+int tn_input_btn_next(tn_input_t *);
+int tn_input_btn_prev(tn_input_t *);
+int tn_input_btn_vol_up(tn_input_t *);
+int tn_input_btn_vol_down(tn_input_t *);
+
+void tn_input_destroy(tn_input_t *);
+
+#endif /* INPUT_H */
 
