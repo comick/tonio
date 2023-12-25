@@ -27,6 +27,7 @@
 #include <iwlib.h>
 #include <microhttpd.h>
 #include <confuse.h>
+#include <signal.h>
 
 #include "http.h"
 #include "tonio.h"
@@ -184,6 +185,7 @@ static enum MHD_Result _handle_settings(void *cls, struct MHD_Connection *connec
             P_CHECK(cfg_fp, return MHD_NO);
             I_CHECK(cfg_print(self->cfg, cfg_fp), return MHD_NO);
             I_CHECK(fclose(cfg_fp), return MHD_NO);
+            raise(SIGUSR1);
         }
     }
 
@@ -260,6 +262,7 @@ static enum MHD_Result _handle_static(void *cls, struct MHD_Connection *connecti
         }
         response = MHD_create_response_from_fd(tmp_stat.st_size, tmp_fd);
     } else if (tmp_fd < 0 && errno == EACCES) {
+        // TODO not working if folder is wrong, fixme.
         syslog(LOG_INFO, "Resource requested but not found at %s (%s)", url, static_filename);
         status_code = MHD_HTTP_NOT_FOUND;
         response = MHD_create_response_from_buffer(strlen("Not Found"), "Not Found", MHD_RESPMEM_MUST_COPY);
@@ -539,6 +542,7 @@ http_init_cleanup:
 }
 
 void tn_http_stop(tn_http_t *self) {
+    syslog(LOG_INFO, "Shutting down http subsystem.");
     MHD_stop_daemon(self->mhd_daemon);
     free(self);
 }

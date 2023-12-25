@@ -26,6 +26,7 @@
 #include <gpiod.h>
 #include <stdbool.h>
 #include <confuse.h>
+#include <signal.h>
 
 #include "config.h"
 #include "tonio.h"
@@ -53,16 +54,48 @@ static cfg_opt_t config_opts[] = {
     CFG_END()
 };
 
+static char **_argv = NULL;
+
+static bool _reload_requested = false;
+
+static struct timespec _poll_interval = {
+    .tv_sec = 0,
+    .tv_nsec = 50/* msec */ * 1000000
+};
+
+static cfg_t *cfg = NULL;
+static tn_media_t *media = NULL;
+static tn_input_t *input = NULL;
+static tn_http_t *http = NULL;
+
+void _request_reload() {
+    syslog(LOG_ALERT, "Reload requested.");
+    _reload_requested = true;
+}
+
+static void _shutdown() {
+    syslog(LOG_ALERT, "Shutting down.");
+    if (input != NULL) tn_input_destroy(input);
+    if (media != NULL) tn_media_destroy(media);
+    if (http != NULL) tn_http_stop(http);
+    if (cfg != NULL) cfg_free(cfg);
+    closelog();
+}
+
+static void _keep_alive() {
+    if (_reload_requested) {
+        syslog(LOG_ALERT, "Reload requested.");
+        _shutdown();
+        execv(_argv[0], _argv);
+    }
+    nanosleep(&_poll_interval, NULL);
+}
+
 int main(int argc, char** argv) {
 
     //Recognized card ID
     uint8_t card_id[5] = {0x00,};
     uint8_t selected_card_id[5] = {0x00,};
-   
-    struct timespec poll_interval = {
-        .tv_sec = 0,
-        .tv_nsec = 50/* msec */ * 1000000
-    };
 
     openlog("tonio", LOG_PID | LOG_CONS | LOG_PERROR, LOG_USER);
 
@@ -71,27 +104,31 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    cfg_t *cfg = cfg_init(config_opts, CFGF_NONE);
+    cfg = cfg_init(config_opts, CFGF_NONE);
 
     if (!cfg || cfg_parse(cfg, argv[1]) == CFG_PARSE_ERROR) {
         syslog(LOG_CRIT, "Cannot parse configuration at %s.", argv[1]);
         return EXIT_FAILURE;
     }
 
-    tn_media_t *media = tn_media_init(cfg);
+    media = tn_media_init(cfg);
     P_CHECK(media, return EXIT_FAILURE);
 
-    tn_input_t *input = tn_input_init(cfg);
-    
-    tn_http_t *http = tn_http_init(media, selected_card_id, cfg);
+    input = tn_input_init(cfg);
+
+    http = tn_http_init(media, selected_card_id, cfg);
     P_CHECK(http, return EXIT_FAILURE);
+
+    _argv = argv;
+
+    signal(SIGUSR1, _request_reload);
 
     while (true) {
 
         syslog(LOG_INFO, "Waiting for card...");
 
         while (!tn_input_tag_poll(input, card_id)) {
-            nanosleep(&poll_interval, NULL);
+            _keep_alive();
         }
 
         syslog(LOG_INFO, "Card uid detected: %02X%02X%02X%02X", card_id[0], card_id[1], card_id[2], card_id[3]);
@@ -109,7 +146,7 @@ int main(int argc, char** argv) {
 
                 // Does some auth to make sure card still there.
                 while (tn_input_tag_check(input, card_id)) {
-                    nanosleep(&poll_interval, NULL);
+                    _keep_alive();
 
                     int current_prev_state = tn_input_btn_prev(input);
                     if (current_prev_state == 1 && last_prev_state == 0) {
@@ -133,7 +170,7 @@ int main(int argc, char** argv) {
                 // Does some auth to make sure card still there.
                 // Allows http to know the card is there
                 while (tn_input_tag_check(input, card_id)) {
-                    nanosleep(&poll_interval, NULL);
+                    _keep_alive();
                 }
 
             }
@@ -145,14 +182,6 @@ int main(int argc, char** argv) {
 
         }
     }
-
-    tn_input_destroy(input);
-    tn_media_destroy(media);
-    tn_http_stop(http);
-
-    cfg_free(cfg);
-
-    closelog();
 
     return (EXIT_SUCCESS);
 }

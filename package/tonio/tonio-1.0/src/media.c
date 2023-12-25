@@ -461,6 +461,8 @@ save_pos_clean:
 }
 
 void tn_media_destroy(tn_media_t *self) {
+    syslog(LOG_INFO, "Shutting down media subsystem.");
+    
     tn_media_stop(self);
     libvlc_release(self->vlc);
 
