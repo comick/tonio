@@ -6,6 +6,12 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="./tonio.css" rel="stylesheet" type="text/css">
 
+        <script src="./common.js"></script>
+        <script src="./lib.js"></script>
+        <script src="./status.js"></script>
+        <script src="./settings.js"></script>
+        <script src="./log.js"></script>
+        <script src="./setup.js"></script>
         <script src="./tonio.js"></script>
 
     </head>
@@ -45,11 +51,6 @@
         </div>
 
         <div id="settings-stage" class="stage">
-
-
-            <form action="/settings" method="POST" name="settings-form" id="settings-form">
-            </form>
-
             <table>
                 <tr><td colspan="2"><h4>Networking</h4></td></tr>
                 <tr><td>Wireless network:</td><td><select name="iwlist" id="iwlist" form="settings-form" ></select><span id="iwlist-reload" class="disabled">&#x27f3;</span></td></tr>
@@ -65,14 +66,14 @@
                 <tr><td>Volume down gpio pin:</td><td><input type="number" id="btn-volume-down" name="btn-volume-down" min="0" max="30" form="settings-form"></td></tr>
                 <tr><td>RFID Reader SPI device:</td><td><input type="text" id="mfrc522-spi-dev" name="mfrc522-spi-dev" form="settings-form"></td></tr>
 
-                <tr><td></td><td><input type="submit" value="Apply settings" form="settings-form" /></td></tr>
+                <tr><td></td><td><input type="submit" id="settings-apply" value="Apply settings" /></td></tr>
             </table>
 
         </div>
 
         <div id="setup-stage" class="stage">
             <h1>Welcome to your brand new Tonio!</h1>
-            
+
             <input type="submit" id="setup-finalize" value="Finalize and start using tonio" />
 
         </div>
