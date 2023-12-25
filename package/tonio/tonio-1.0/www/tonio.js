@@ -284,13 +284,22 @@ window.onload = async () => {
                         method: 'POST',
                         body: body
                     });
-                    location.reload(true);
+                    if (resp.status === 200) {
+                        // Service reloads after post settings, wait until responsive.
+                        while (true) {
+                            try {
+                                await fetch('/status');
+                                return stage('status');
+                            } catch {
+                            }
+                        }
+                    }
                 }
 
                 return {
                     open: async () => {
                         settings = await (await fetch('/settings')).json();
-                        if (settings['factory-new'] === false){
+                        if (settings['factory-new'] === false) {
                             stage('status');
                         }
                         finalizeButton = document.getElementById('setup-finalize');
@@ -317,6 +326,11 @@ window.onload = async () => {
             }
 
             currentStageId = stageId;
+
+            if (currentStageId !== 'setup') {
+                document.getElementById('menu').style = 'display: block';
+            }
+
             let currentRootElem = document.getElementById(currentStageId + '-stage');
             stages[currentStageId].open(currentRootElem);
             currentRootElem.style = 'display: block';
@@ -331,7 +345,6 @@ window.onload = async () => {
     if (settings.factory_new) {
         stage('setup');
     } else {
-        document.getElementById('menu').style = 'display: block';
         let hash = window.location.hash.substr(1);
         (hash && hash !== 'setup' && stage(hash)) || stage('status');
     }
