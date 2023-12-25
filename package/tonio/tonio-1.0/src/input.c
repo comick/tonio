@@ -112,6 +112,8 @@ int tn_input_btn_vol_down(tn_input_t *self) {
 
 void tn_input_destroy(tn_input_t *self) {
     if (self == NULL) return;
+    
+    syslog(LOG_INFO, "Shutting down input subsystem.");
 
     MFRC522_Halt();
     gpiod_chip_close(self->gpio_chip);
