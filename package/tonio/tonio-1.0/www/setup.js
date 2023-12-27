@@ -21,6 +21,7 @@ function setupStageCreate() {
     let finalizeButton;
 
     async function finalize() {
+        finalizeButton.disabled = true;
         settings['factory-new'] = false;
 
         let body = new FormData();
@@ -32,13 +33,8 @@ function setupStageCreate() {
         });
         if (resp.status === 200) {
             // Service reloads after post settings, wait until responsive.
-            while (true) {
-                try {
-                    await fetch('/status');
-                    return stage('status');
-                } catch {
-                }
-            }
+            await waitCondition(100, fetch.bind(null, '/status'));
+            return stage('status');
         }
     }
 

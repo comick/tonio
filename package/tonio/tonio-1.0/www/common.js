@@ -19,6 +19,22 @@
 const nop = () => {
 };
 
+async function sleep(ms) {
+    return new Promise(res => setTimeout(res, ms));
+}
+
+async function waitCondition(delay, conditionFn) {
+    while (true) {
+        await sleep(delay);
+        try {
+            await conditionFn();
+            break;
+        } catch {
+            continue;
+        }
+    }
+}
+
 async function loadIwlist(currentEssid, iwlist, iwlistReload) {
     iwlist.disabled = true;
     iwlistReload.className = 'disabled';

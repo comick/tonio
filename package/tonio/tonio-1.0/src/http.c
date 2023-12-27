@@ -35,6 +35,7 @@
 #include "json.h"
 
 // TODO make configurable
+//#define WLAN_IF "wlp9s0"
 #define WLAN_IF "wlan0"
 #define SYSLOG_PATH "/var/log/messages"
 
@@ -306,7 +307,7 @@ static enum MHD_Result _handle_log(void *cls, struct MHD_Connection *connection,
     syslog(LOG_DEBUG, "Log requested");
 
     // For this to really work, syslogd should have rotation disable.
-    int log_fd = open(SYSLOG_PATH, O_RDONLY);
+    int log_fd = open(SYSLOG_PATH, O_RDONLY); // TODO add one more log file path
     off_t sz = lseek(log_fd, 0, SEEK_END);
     I_CHECK(sz, return MHD_NO);
 
@@ -333,21 +334,36 @@ typedef struct {
     wireless_scan *scan_result;
 } _iwlist_json_status_t;
 
-static char * _iwlist_json_next(void *cls) {
+static cj_token_t _iwlist_json_next(void *cls) {
     _iwlist_json_status_t *sts = (_iwlist_json_status_t *) cls;
 
+    if (sts->iwsocket == 0) {
+        wireless_scan_head head;
+        iwrange range;
+
+        sts->iwsocket = iw_sockets_open();
+        I_CHECK(sts->iwsocket, return cj_null);
+        I_CHECK(iw_get_range_info(sts->iwsocket, WLAN_IF, &range), return cj_null);
+        I_CHECK(iw_scan(sts->iwsocket, WLAN_IF, range.we_version_compiled, &head), return cj_null);
+
+        sts->scan_result = head.result;
+        return cj_array_push;
+    }
+
     if (sts->scan_result == NULL) {
-        return NULL;
+        return cj_array_pop;
     } else {
         char *res = sts->scan_result->b.essid;
         sts->scan_result = sts->scan_result->next;
-        return res;
+        return cj_string(res);
     }
 }
 
 static void _iwlist_json_free(void *cls) {
     _iwlist_json_status_t *sts = (_iwlist_json_status_t *) cls;
-    iw_sockets_close(sts->iwsocket);
+    if (sts->iwsocket != 0) {
+        iw_sockets_close(sts->iwsocket);
+    }
     free(sts);
 }
 
@@ -360,27 +376,16 @@ static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
     struct MHD_Response *response;
     int ret;
 
-    wireless_scan_head head;
-    iwrange range;
-    int sock;
-
     syslog(LOG_DEBUG, "Wireless list requested");
 
-    sock = iw_sockets_open();
-    I_CHECK(sock, return MHD_NO);
-    I_CHECK(iw_get_range_info(sock, WLAN_IF, &range), return MHD_NO);
-    I_CHECK(iw_scan(sock, WLAN_IF, range.we_version_compiled, &head), return MHD_NO);
+    _iwlist_json_status_t *sts = calloc(1, sizeof (_iwlist_json_status_t));
 
-    _iwlist_json_status_t *sts = malloc(sizeof (_iwlist_json_status_t));
-    sts->scan_result = head.result;
-    sts->iwsocket = sock;
-
-    tn_json_string_iterator_t *iwlist_it = tn_json_string_iterator_new(sts, _iwlist_json_next, _iwlist_json_free);
+    cj_token_stream_t *iwlist_it = cj_token_stream_new(sts, _iwlist_json_next, _iwlist_json_free);
 
     response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 35,
-            tn_json_string_array_callback,
+            cj_microhttpd_callback,
             iwlist_it,
-            tn_json_string_iterator_free
+            cj_token_stream_free
             );
 
     P_CHECK(response, return MHD_NO);
@@ -391,8 +396,20 @@ static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
     return ret;
 }
 
-static char *_library_tags_json_next(void *cls) {
-    DIR *dir = cls;
+struct _library_tags_cls {
+    DIR *dir;
+    char *library_root;
+};
+
+static cj_token_t _library_tags_json_next(void *cls) {
+    struct _library_tags_cls *info = (struct _library_tags_cls *) cls;
+    if (info ->dir == NULL) {
+        info->dir = opendir(info->library_root);
+        P_CHECK(info->dir, 3);
+        return cj_array_push;
+    }
+
+    DIR *dir = info->dir;
     struct dirent *ent;
 
     errno = 0;
@@ -401,15 +418,18 @@ static char *_library_tags_json_next(void *cls) {
         ent = readdir(dir);
     }
     if (ent != NULL) {
-        return ent->d_name;
+        return cj_string(ent->d_name);
     } else {
-        return NULL;
+        return cj_array_pop;
     }
 }
 
 static void _library_tags_json_free(void *cls) {
-    DIR *dir = cls;
-    closedir(dir);
+    struct _library_tags_cls *info = (struct _library_tags_cls *) cls;
+
+    DIR *dir = info->dir;
+    if (dir != NULL) closedir(dir);
+    free(info);
 }
 
 static enum MHD_Result _handle_library(void *cls, struct MHD_Connection *connection,
@@ -424,15 +444,16 @@ static enum MHD_Result _handle_library(void *cls, struct MHD_Connection *connect
 
     syslog(LOG_DEBUG, "Library requested");
     syslog(LOG_ERR, "%s", self->library_root);
-    DIR *dir = opendir(self->library_root);
-    P_CHECK(dir, return MHD_NO);
 
-    tn_json_string_iterator_t *dir_it = tn_json_string_iterator_new(dir, _library_tags_json_next, _library_tags_json_free);
+    struct _library_tags_cls *lib_cls = malloc(sizeof (struct _library_tags_cls));
+    lib_cls->dir = NULL;
+    lib_cls->library_root = self->library_root;
+    cj_token_stream_t *dir_it = cj_token_stream_new(lib_cls, _library_tags_json_next, _library_tags_json_free);
 
     response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
-            tn_json_string_array_callback,
+            cj_microhttpd_callback,
             dir_it,
-            tn_json_string_iterator_free
+            cj_token_stream_free
             );
     P_CHECK(response, return MHD_NO);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_APPLICATION_JSON);

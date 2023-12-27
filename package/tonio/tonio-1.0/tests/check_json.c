@@ -20,11 +20,17 @@
 #include <microhttpd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include "../src/json.h"
 
-static char *_next_none(void *cls) {
-    return NULL;
+static cj_token_t _next_none(void *cls) {
+    char *status = (char *) cls;
+    if (*status == '-') {
+        *status = 'o';
+        return cj_array_push;
+    }
+    return cj_array_pop;
 }
 
 typedef struct _words {
@@ -33,39 +39,44 @@ typedef struct _words {
     char **words;
 } _words_t;
 
-static char *_next_word(void *cls) {
+static cj_token_t _next_word(void *cls) {
     _words_t *cd = (_words_t *) cls;
+    
+    if (cd->current < 0) {
+        cd->current = 0;
+        return cj_array_push;
+    }
+    
     if (cd->current >= cd->count) {
-        return NULL;
+        return cj_array_pop;
     }
 
     int pos = cd->current;
     cd->current += 1;
-
-    return cd->words[pos];
+    return cj_string(cd->words[pos]);
 }
 
 static void _free_nothing(void *cls) {
 }
 
 static void _free_something(void *cls) {
-    int *some_cls = (int *) cls;
+    char *some_cls = (char *) cls;
     *some_cls = 'x';
 }
 
 START_TEST(test_free) {
     size_t buf_size = 1000;
     char *buf = (char *) malloc(sizeof (char) * buf_size);
-    int some_cls = 'o';
-    tn_json_string_iterator_t *it = tn_json_string_iterator_new(&some_cls, _next_none, _free_something);
+    char some_cls = '-';
+    cj_token_stream_t *it = cj_token_stream_new(&some_cls, _next_none, _free_something);
     uint64_t pos = 0l;
 
     uint64_t n;
-    while ((n = tn_json_string_array_callback(it, pos, buf + pos, buf_size)) != MHD_CONTENT_READER_END_OF_STREAM) {
+    while ((n = cj_microhttpd_callback(it, pos, buf + pos, buf_size)) != MHD_CONTENT_READER_END_OF_STREAM) {
         pos += n;
     }
     *(buf + pos) = '\0';
-    tn_json_string_iterator_free(it);
+    cj_token_stream_free(it);
 
     ck_assert_str_eq(buf, "[]");
     ck_assert_int_eq(some_cls, 'x');
@@ -79,15 +90,16 @@ END_TEST
 START_TEST(test_empty_array) {
     size_t buf_size = 1000;
     char * buf = (char *) malloc(sizeof (char) * buf_size);
-    tn_json_string_iterator_t *it = tn_json_string_iterator_new(NULL, _next_none, _free_nothing);
+    char some_cls = '-';
+    cj_token_stream_t *it = cj_token_stream_new(&some_cls, _next_none, _free_nothing);
     uint64_t pos = 0l;
 
     uint64_t n;
-    while ((n = tn_json_string_array_callback(it, pos, buf + pos, buf_size)) != MHD_CONTENT_READER_END_OF_STREAM) {
+    while ((n = cj_microhttpd_callback(it, pos, buf + pos, buf_size)) != MHD_CONTENT_READER_END_OF_STREAM) {
         pos += n;
     }
     *(buf + pos) = '\0';
-    tn_json_string_iterator_free(it);
+    cj_token_stream_free(it);
 
     ck_assert_str_eq(buf, "[]");
 
@@ -105,17 +117,17 @@ START_TEST(test_non_empty_array) {
         "miao",
         "bau"
     };
-    _words_t ws = {0, 3, wsz};
+    _words_t ws = {-1, 3, wsz};
 
-    tn_json_string_iterator_t *it = tn_json_string_iterator_new(&ws, _next_word, _free_nothing);
+    cj_token_stream_t *it = cj_token_stream_new(&ws, _next_word, _free_nothing);
     uint64_t pos = 0l;
 
     uint64_t n;
-    while ((n = tn_json_string_array_callback(it, pos, buf + pos, buf_size)) != MHD_CONTENT_READER_END_OF_STREAM) {
+    while ((n = cj_microhttpd_callback(it, pos, buf + pos, buf_size)) != MHD_CONTENT_READER_END_OF_STREAM) {
         pos += n;
     }
     *(buf + pos) = '\0';
-    tn_json_string_iterator_free(it);
+    cj_token_stream_free(it);
 
     ck_assert_str_eq(buf, "[\"ciao\",\"miao\",\"bau\"]");
 

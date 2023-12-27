@@ -62,14 +62,7 @@ function settingsStageCreate() {
                 });
                 if (resp.status === 200) {
                     // Service reloads after post settings, wait until responsive.
-                    while (true) {
-                        try {
-                            await loadSettings();
-                            break;
-                        } catch {
-                            continue;
-                        }
-                    }
+                    await waitCondition(100, loadSettings);
                 }
             };
         },

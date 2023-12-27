@@ -29,70 +29,88 @@
 #define JSON_QUOTE "\""
 #define JSON_ITEM_SEP ","
 
-struct tn_json_string_iterator {
+#define CJ_ARRAY_PUSH 1
+#define CJ_ARRAY_POP 2
+#define CJ_STRING 4
+#define CJ_NULL 8
+
+struct cj_token_stream {
     void *cls; // context for next
-    bool done; // default false
-    int pos; // default -1
-    tn_json_string_iterator_next_t next;
-    tn_json_string_iterator_free_t free;
+    uint32_t last_token;
+    uint32_t expected_tokens;
+    cj_token_stream_next_t next;
+    cj_token_stream_free_t free;
 };
 
-tn_json_string_iterator_t *tn_json_string_iterator_new(void * cls,
-        tn_json_string_iterator_next_t next,
-        tn_json_string_iterator_free_t free) {
-    tn_json_string_iterator_t *it = malloc(sizeof (tn_json_string_iterator_t));
+const cj_token_t cj_null = {CJ_NULL, NULL};
+const cj_token_t cj_array_push = {CJ_ARRAY_PUSH, NULL};
+const cj_token_t cj_array_pop = {CJ_ARRAY_POP, NULL};
+
+cj_token_t cj_string(char *buf) {
+    return (cj_token_t){ CJ_STRING, buf};
+}
+
+cj_token_stream_t *cj_token_stream_new(void * cls,
+        cj_token_stream_next_t next,
+        cj_token_stream_free_t free) {
+    cj_token_stream_t *it = malloc(sizeof (cj_token_stream_t));
     it->cls = cls;
-    it->done = false;
-    it->pos = -1;
+    it->last_token = 0;
+    it->expected_tokens = CJ_ARRAY_PUSH;
     it->next = next;
     it->free = free;
     return it;
 }
 
-void tn_json_string_iterator_free(void *cls) {
-    tn_json_string_iterator_t *it = (tn_json_string_iterator_t *) cls;
+void cj_token_stream_free(void *cls) {
+    cj_token_stream_t *it = (cj_token_stream_t *) cls;
     it->free(it->cls);
     free(it);
 }
 
-ssize_t tn_json_string_array_callback(void *cls, uint64_t pos, char *buf, size_t max) {
-    tn_json_string_iterator_t *it = (tn_json_string_iterator_t *) cls;
+ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max) {
+    cj_token_stream_t *ts = (cj_token_stream_t *) cls;
 
-    if (it->done) {
+    if (ts->expected_tokens == 0) {
         return MHD_CONTENT_READER_END_OF_STREAM;
     }
 
-    if (it->pos == -1) {
-        memcpy(buf, JSON_ARRAY_BEGIN, strlen(JSON_ARRAY_BEGIN));
-        it->pos++;
-        return strlen(JSON_ARRAY_BEGIN);
+    cj_token_t next = ts->next(ts->cls);
+
+    uint32_t previous_token = ts->last_token;
+    ts->last_token = next.type;
+
+    char *val;
+    switch (next.type) {
+        case CJ_ARRAY_PUSH:
+            memcpy(buf, JSON_ARRAY_BEGIN, strlen(JSON_ARRAY_BEGIN));
+            ts->expected_tokens = CJ_STRING | CJ_ARRAY_POP;
+            return strlen(JSON_ARRAY_BEGIN);
+        case CJ_ARRAY_POP:
+            ts->expected_tokens = 0;
+            memcpy(buf, JSON_ARRAY_END, strlen(JSON_ARRAY_END));
+            return strlen(JSON_ARRAY_END);
+        case CJ_STRING:
+            val = (char *) (next.value);
+
+            int offset = 0;
+
+            if (previous_token == CJ_STRING) {
+                memcpy(buf + offset, JSON_ITEM_SEP, strlen(JSON_ITEM_SEP));
+                offset += strlen(JSON_ITEM_SEP);
+            }
+            memcpy(buf + offset, JSON_QUOTE, strlen(JSON_QUOTE));
+            offset += strlen(JSON_QUOTE);
+
+            memcpy(buf + offset, val, strlen(val));
+            offset += strlen(val);
+            //free(next); // TODO free somewhere
+
+            memcpy(buf + offset, JSON_QUOTE, strlen(JSON_QUOTE));
+            offset += strlen(JSON_QUOTE);
+
+            return offset;
+        default:
+            return MHD_CONTENT_READER_END_OF_STREAM;
     }
-
-    char *next = it->next(it->cls);
- 
-    if (next == NULL) {
-        it->done = true;
-        memcpy(buf, JSON_ARRAY_END, strlen(JSON_ARRAY_END));
-        return strlen(JSON_ARRAY_END);
-    } else {
-        it->pos++;
-    }
-
-    int offset = 0;
-
-    if (pos != strlen(JSON_ARRAY_BEGIN)) {
-        memcpy(buf + offset, JSON_ITEM_SEP, strlen(JSON_ITEM_SEP));
-        offset += strlen(JSON_ITEM_SEP);
-    }
-    memcpy(buf + offset, JSON_QUOTE, strlen(JSON_QUOTE));
-    offset += strlen(JSON_QUOTE);
-
-    memcpy(buf + offset, next, strlen(next));
-    offset += strlen(next);
-    //free(next); // TODO free somewhere
-
-    memcpy(buf + offset, JSON_QUOTE, strlen(JSON_QUOTE));
-    offset += strlen(JSON_QUOTE);
-
-    return offset;
 }

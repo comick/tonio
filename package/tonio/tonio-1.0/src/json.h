@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2022, 2023 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -22,16 +22,31 @@
 #define JSON_TRUE "true"
 #define JSON_FALSE "false"
 
-typedef struct tn_json_string_iterator tn_json_string_iterator_t;
+/** Token type, constants and factory functions. */
 
-typedef char * (*tn_json_string_iterator_next_t) (void *cls);
-typedef void (*tn_json_string_iterator_free_t) (void *cls);
+struct cj_token {
+    uint32_t type;
+    void *value;
+};
 
-tn_json_string_iterator_t *tn_json_string_iterator_new(void *, tn_json_string_iterator_next_t, tn_json_string_iterator_free_t);
+typedef struct cj_token cj_token_t;
 
-void tn_json_string_iterator_free(void *);
+extern const cj_token_t cj_null;
+extern const cj_token_t cj_array_push;
+extern const cj_token_t cj_array_pop;
 
-ssize_t tn_json_string_array_callback(void *cls, uint64_t pos, char *buf, size_t max);
+cj_token_t cj_string(char *buf);
+
+/** Token streams and interfaces. */
+typedef struct cj_token_stream cj_token_stream_t;
+
+typedef cj_token_t (*cj_token_stream_next_t) (void *cls);
+typedef void (*cj_token_stream_free_t) (void *cls);
+
+cj_token_stream_t *cj_token_stream_new(void *cls , cj_token_stream_next_t nxt, cj_token_stream_free_t free);
+
+void cj_token_stream_free(void *cls);
+
+ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max);
 
 #endif /* JSON_H */
-
