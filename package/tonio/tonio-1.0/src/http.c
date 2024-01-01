@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2023 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2020-2024 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -60,7 +60,7 @@
 #define LIBRARY_URL_PATH "/library"
 
 #define CFG_SETBOOL(K) if (strcmp(key, K) == 0) { \
-    cfg_setbool(cfg, K, strcmp(JSON_TRUE, d) == 0 ? cfg_true : cfg_false); \
+    cfg_setbool(cfg, K, strcmp(cj_true.value.str, d) == 0 ? cfg_true : cfg_false); \
 }
 
 #define CFG_SETINT(K) if (strcmp(key, K) == 0) { \
@@ -97,8 +97,12 @@ static int _handle_status(void *cls, struct MHD_Connection *connection,
     long page_len = 0;
     uint8_t *card_id = self->selected_card_id;
 
-    char *internet_status = self->internet_connected ? JSON_TRUE : JSON_FALSE;
-    char *tag_present = (card_id[0] | card_id[1] | card_id[2] | card_id[3]) ? JSON_TRUE : JSON_FALSE;
+    const char *internet_status = self->internet_connected
+            ? cj_true.value.str
+            : cj_false.value.str;
+    const char *tag_present = (card_id[0] | card_id[1] | card_id[2] | card_id[3])
+            ? cj_true.value.str
+            : cj_false.value.str;
     bool playing = tn_media_is_playing(self->media);
     int current_track = -1, track_total = -1;
     char *track_name = "";
@@ -199,7 +203,9 @@ static enum MHD_Result _handle_settings(void *cls, struct MHD_Connection *connec
     I_CHECK(iw_get_basic_config(iw_sock, WLAN_IF, &wconfig), return MHD_NO);
     iw_sockets_close(iw_sock);
 
-    char *factory_new = cfg_getbool(self->cfg, CFG_FACTORY_NEW) == cfg_true ? JSON_TRUE : JSON_FALSE;
+    const char *factory_new = cfg_getbool(self->cfg, CFG_FACTORY_NEW) == cfg_true
+            ? cj_true.value.str
+            : cj_false.value.str;
     long pin_prev = cfg_getint(self->cfg, CFG_BTN_TRACK_PREVIOUS);
     long pin_next = cfg_getint(self->cfg, CFG_BTN_TRACK_NEXT);
     long pin_vol_up = cfg_getint(self->cfg, CFG_BTN_VOLUME_UP);

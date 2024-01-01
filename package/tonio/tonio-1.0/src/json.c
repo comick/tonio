@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022-2023 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2022-2024 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -24,30 +24,41 @@
 
 #include "json.h"
 
-#define JSON_ARRAY_BEGIN "["
-#define JSON_ARRAY_END "]"
-#define JSON_QUOTE "\""
-#define JSON_ITEM_SEP ","
-
-#define CJ_ARRAY_PUSH 1
-#define CJ_ARRAY_POP 2
-#define CJ_STRING 4
-#define CJ_NULL 8
+#define _CJ_VALUE_PUSH (CJ_ARRAY_PUSH | CJ_NULL | CJ_OBJECT_PUSH | CJ_TRUE | CJ_FALSE | CJ_STRING | CJ_NUMBER)
+#define _CJ_VALUE_POP (CJ_ARRAY_POP | CJ_NULL | CJ_OBJECT_POP | CJ_TRUE | CJ_FALSE | CJ_STRING | CJ_NUMBER)
 
 struct cj_token_stream {
     void *cls; // context for next
-    uint32_t last_token;
+    cj_token_type_t last_token_type;
     uint32_t expected_tokens;
     cj_token_stream_next_t next;
     cj_token_stream_free_t free;
 };
 
-const cj_token_t cj_null = {CJ_NULL, NULL};
-const cj_token_t cj_array_push = {CJ_ARRAY_PUSH, NULL};
-const cj_token_t cj_array_pop = {CJ_ARRAY_POP, NULL};
+const cj_token_t cj_null = {CJ_NULL, .value.str = "null"};
+const cj_token_t cj_true = {CJ_TRUE, .value.str = "true"};
+const cj_token_t cj_false = {CJ_FALSE, .value.str = "false"};
+const cj_token_t cj_array_push = {CJ_ARRAY_PUSH, .value.str = "["};
+const cj_token_t cj_array_pop = {CJ_ARRAY_POP, .value.str = "]"};
+const cj_token_t cj_object_push = {CJ_OBJECT_PUSH, .value.str = "{"};
+const cj_token_t cj_object_pop = {CJ_OBJECT_POP, .value.str = "}"};
 
 cj_token_t cj_string(char *buf) {
-    return (cj_token_t){ CJ_STRING, buf};
+    if (buf == NULL) {
+        return cj_null;
+    }
+    return (cj_token_t){ CJ_STRING, .value.str = buf};
+}
+
+cj_token_t cj_number(double n) {
+    return (cj_token_t){ CJ_NUMBER, .value.number = n};
+}
+
+cj_token_t cj_key(char *buf) {
+    if (buf == NULL) {
+        return cj_null;
+    }
+    return (cj_token_t){ CJ_KEY, .value.str = buf};
 }
 
 cj_token_stream_t *cj_token_stream_new(void * cls,
@@ -55,8 +66,8 @@ cj_token_stream_t *cj_token_stream_new(void * cls,
         cj_token_stream_free_t free) {
     cj_token_stream_t *it = malloc(sizeof (cj_token_stream_t));
     it->cls = cls;
-    it->last_token = 0;
-    it->expected_tokens = CJ_ARRAY_PUSH;
+    it->last_token_type = CJ_NONE;
+    it->expected_tokens = _CJ_VALUE_POP;
     it->next = next;
     it->free = free;
     return it;
@@ -75,39 +86,64 @@ ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max) {
         return MHD_CONTENT_READER_END_OF_STREAM;
     }
 
-    cj_token_t next = ts->next(ts->cls);
+    cj_token_t tk = ts->next(ts->cls);
 
-    uint32_t previous_token = ts->last_token;
-    ts->last_token = next.type;
+    int offset = 0;
 
-    char *val;
-    switch (next.type) {
+    if ((tk.type & _CJ_VALUE_PUSH) && (ts->last_token_type & _CJ_VALUE_POP)) {
+        *buf = ',';
+        offset += 1;
+    }
+
+    ts->last_token_type = tk.type;
+
+    switch (tk.type) {
         case CJ_ARRAY_PUSH:
-            memcpy(buf, JSON_ARRAY_BEGIN, strlen(JSON_ARRAY_BEGIN));
-            ts->expected_tokens = CJ_STRING | CJ_ARRAY_POP;
-            return strlen(JSON_ARRAY_BEGIN);
+            memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
+            return strlen(tk.value.str);
         case CJ_ARRAY_POP:
             ts->expected_tokens = 0;
-            memcpy(buf, JSON_ARRAY_END, strlen(JSON_ARRAY_END));
-            return strlen(JSON_ARRAY_END);
-        case CJ_STRING:
-            val = (char *) (next.value);
+            memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
+            return strlen(tk.value.str);
+        case CJ_OBJECT_PUSH:
+            memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
+            return strlen(tk.value.str);
+        case CJ_OBJECT_POP:
+            ts->expected_tokens = 0;
+            memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
+            return strlen(tk.value.str);
+        case CJ_NULL:
+            memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
+            offset += strlen(tk.value.str);
+            return offset;
+        case CJ_NUMBER:
+            offset += sprintf(buf + offset, "%g", tk.value.number);
+            return offset;
+        case CJ_KEY:
+            *(buf + offset) = '"';
+            offset += 1;
 
-            int offset = 0;
-
-            if (previous_token == CJ_STRING) {
-                memcpy(buf + offset, JSON_ITEM_SEP, strlen(JSON_ITEM_SEP));
-                offset += strlen(JSON_ITEM_SEP);
-            }
-            memcpy(buf + offset, JSON_QUOTE, strlen(JSON_QUOTE));
-            offset += strlen(JSON_QUOTE);
-
-            memcpy(buf + offset, val, strlen(val));
-            offset += strlen(val);
+            memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
+            offset += strlen(tk.value.str);
             //free(next); // TODO free somewhere
 
-            memcpy(buf + offset, JSON_QUOTE, strlen(JSON_QUOTE));
-            offset += strlen(JSON_QUOTE);
+            *(buf + offset) = '"';
+            offset += 1;
+
+            *(buf + offset) = ':';
+            offset += 1;
+
+            return offset;
+        case CJ_STRING:
+            *(buf + offset) = '"';
+            offset += 1;
+
+            memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
+            offset += strlen(tk.value.str);
+            //free(next); // TODO free somewhere
+
+            *(buf + offset) = '"';
+            offset += 1;
 
             return offset;
         default:

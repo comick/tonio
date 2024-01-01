@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022-2023 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2022-2024 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -33,27 +33,27 @@ static cj_token_t _next_none(void *cls) {
     return cj_array_pop;
 }
 
-typedef struct _words {
+typedef struct _tokens {
     int current;
     const int count;
-    char **words;
-} _words_t;
+    const cj_token_t *tks;
+} _tokens_t;
 
-static cj_token_t _next_word(void *cls) {
-    _words_t *cd = (_words_t *) cls;
-    
+static cj_token_t _next_token(void *cls) {
+    _tokens_t *cd = (_tokens_t *) cls;
+
     if (cd->current < 0) {
         cd->current = 0;
         return cj_array_push;
     }
-    
+
     if (cd->current >= cd->count) {
         return cj_array_pop;
     }
 
     int pos = cd->current;
     cd->current += 1;
-    return cj_string(cd->words[pos]);
+    return cd->tks[pos];
 }
 
 static void _free_nothing(void *cls) {
@@ -112,14 +112,16 @@ END_TEST
 START_TEST(test_non_empty_array) {
     size_t buf_size = 1000;
     char * buf = (char *) malloc(sizeof (char) * buf_size);
-    char *wsz[3] = {
-        "ciao",
-        "miao",
-        "bau"
+    cj_token_t tks[4] = {
+        cj_string("ciao"),
+        cj_null,
+        cj_number(43),
+        //cj_string("miao"),
+        cj_string("bau")
     };
-    _words_t ws = {-1, 3, wsz};
+    _tokens_t ws = {-1, 4, tks};
 
-    cj_token_stream_t *it = cj_token_stream_new(&ws, _next_word, _free_nothing);
+    cj_token_stream_t *it = cj_token_stream_new(&ws, _next_token, _free_nothing);
     uint64_t pos = 0l;
 
     uint64_t n;
@@ -129,7 +131,7 @@ START_TEST(test_non_empty_array) {
     *(buf + pos) = '\0';
     cj_token_stream_free(it);
 
-    ck_assert_str_eq(buf, "[\"ciao\",\"miao\",\"bau\"]");
+    ck_assert_str_eq(buf, "[\"ciao\",null,43,\"bau\"]");
 
     free(buf);
 }
@@ -137,11 +139,11 @@ START_TEST(test_non_empty_array) {
 END_TEST
 
 
-Suite * json_suite(void) {
+Suite * cj_array_simple_suite(void) {
     Suite *s;
-    TCase *tc_empty, *tc_non_empty, *tc_words, *tc_free;
+    TCase *tc_empty, *tc_non_empty, *tc_free;
 
-    s = suite_create("JSON");
+    s = suite_create("Array");
 
     /* JSON test cases */
     tc_empty = tcase_create("Empty Array");
@@ -152,7 +154,7 @@ Suite * json_suite(void) {
     tcase_add_test(tc_non_empty, test_non_empty_array);
     suite_add_tcase(s, tc_non_empty);
 
-    tc_free = tcase_create("Free Tterator");
+    tc_free = tcase_create("Free Iterator");
     tcase_add_test(tc_free, test_free);
     suite_add_tcase(s, tc_free);
 
@@ -165,7 +167,7 @@ int main(void) {
     Suite *s;
     SRunner *sr;
 
-    s = json_suite();
+    s = cj_array_simple_suite();
     sr = srunner_create(s);
 
     srunner_run_all(sr, CK_VERBOSE);

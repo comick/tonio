@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022, 2023 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2022, 2024 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -19,31 +19,49 @@
 #ifndef JSON_H
 #define JSON_H
 
-#define JSON_TRUE "true"
-#define JSON_FALSE "false"
-
 /** Token type, constants and factory functions. */
 
-struct cj_token {
-    uint32_t type;
-    void *value;
-};
+typedef enum cj_token_type {
+    CJ_NONE = 0,
+    CJ_ARRAY_PUSH = 1 << 0,
+    CJ_ARRAY_POP = 1 << 1,
+    CJ_STRING = 1 << 2,
+    CJ_NULL = 1 << 3,
+    CJ_OBJECT_PUSH = 1 << 4,
+    CJ_OBJECT_POP = 1 << 5,
+    CJ_KEY = 1 << 6,
+    CJ_NUMBER = 1 << 7,
+    CJ_TRUE = 1 << 8,
+    CJ_FALSE = 1 << 9
+} cj_token_type_t;
 
-typedef struct cj_token cj_token_t;
+typedef struct cj_token {
+    const cj_token_type_t type;
+
+    const union {
+        const char *str;
+        const double number;
+    } value;
+} cj_token_t;
 
 extern const cj_token_t cj_null;
+extern const cj_token_t cj_true;
+extern const cj_token_t cj_false;
 extern const cj_token_t cj_array_push;
 extern const cj_token_t cj_array_pop;
+extern const cj_token_t cj_object_push;
+extern const cj_token_t cj_object_pop;
 
 cj_token_t cj_string(char *buf);
+cj_token_t cj_number(double n);
 
 /** Token streams and interfaces. */
 typedef struct cj_token_stream cj_token_stream_t;
 
-typedef cj_token_t (*cj_token_stream_next_t) (void *cls);
+typedef cj_token_t(*cj_token_stream_next_t) (void *cls);
 typedef void (*cj_token_stream_free_t) (void *cls);
 
-cj_token_stream_t *cj_token_stream_new(void *cls , cj_token_stream_next_t nxt, cj_token_stream_free_t free);
+cj_token_stream_t *cj_token_stream_new(void *cls, cj_token_stream_next_t nxt, cj_token_stream_free_t free);
 
 void cj_token_stream_free(void *cls);
 
