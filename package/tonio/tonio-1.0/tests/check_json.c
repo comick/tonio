@@ -24,31 +24,17 @@
 
 #include "../src/json.h"
 
-static cj_token_t _next_none(void *cls) {
-    char *status = (char *) cls;
-    if (*status == '-') {
-        *status = 'o';
-        return cj_array_push;
-    }
-    return cj_array_pop;
-}
-
-typedef struct _tokens {
+typedef struct _tokens_it {
     int current;
     const int count;
     const cj_token_t *tks;
-} _tokens_t;
+} _tokens_it_t;
 
 static cj_token_t _next_token(void *cls) {
-    _tokens_t *cd = (_tokens_t *) cls;
+    _tokens_it_t *cd = (_tokens_it_t *) cls;
 
-    if (cd->current < 0) {
-        cd->current = 0;
-        return cj_array_push;
-    }
-
-    if (cd->current >= cd->count) {
-        return cj_array_pop;
+    if (cd->current == cd->count) {
+        return cj_eos;
     }
 
     int pos = cd->current;
@@ -56,84 +42,98 @@ static cj_token_t _next_token(void *cls) {
     return cd->tks[pos];
 }
 
-static void _free_nothing(void *cls) {
+static void _free_tokens_it(void *cls) {
+    _tokens_it_t *cd = (_tokens_it_t *) cls;
+    cd->current = -1;
 }
 
-static void _free_something(void *cls) {
-    char *some_cls = (char *) cls;
-    *some_cls = 'x';
-}
-
-START_TEST(test_free) {
+static void cj_assert_tks_eq(cj_token_t tks[], int count, const char *exp) {
     size_t buf_size = 1000;
     char *buf = (char *) malloc(sizeof (char) * buf_size);
-    char some_cls = '-';
-    cj_token_stream_t *it = cj_token_stream_new(&some_cls, _next_none, _free_something);
+
+    _tokens_it_t tks_it = {0, count, tks};
+
+    cj_token_stream_t *ts = cj_token_stream_new(&tks_it, _next_token, _free_tokens_it);
     uint64_t pos = 0l;
 
     uint64_t n;
-    while ((n = cj_microhttpd_callback(it, pos, buf + pos, buf_size)) != MHD_CONTENT_READER_END_OF_STREAM) {
+    while ((n = cj_microhttpd_callback(ts, pos, buf + pos, buf_size)) != MHD_CONTENT_READER_END_OF_STREAM) {
         pos += n;
     }
     *(buf + pos) = '\0';
-    cj_token_stream_free(it);
 
-    ck_assert_str_eq(buf, "[]");
-    ck_assert_int_eq(some_cls, 'x');
+    cj_token_stream_free(ts);
+
+    ck_assert_str_eq(buf, exp);
+    ck_assert_int_eq(tks_it.current, -1);
 
     free(buf);
+}
+
+START_TEST(single_values) {
+    cj_assert_tks_eq((cj_token_t[]){
+        cj_null
+    }, 1, "null");
+
+    cj_assert_tks_eq((cj_token_t[]){
+        cj_number(43.23)
+    }, 1, "43.23");
+
+    cj_assert_tks_eq((cj_token_t[]){
+        cj_true
+    }, 1, "true");
+
+    cj_assert_tks_eq((cj_token_t[]){
+        cj_false
+    }, 1, "false");
+
+    cj_assert_tks_eq((cj_token_t[]){
+        cj_string("ciao")
+    }, 1, "\"ciao\"");
 }
 
 END_TEST
 
 
-START_TEST(test_empty_array) {
-    size_t buf_size = 1000;
-    char * buf = (char *) malloc(sizeof (char) * buf_size);
-    char some_cls = '-';
-    cj_token_stream_t *it = cj_token_stream_new(&some_cls, _next_none, _free_nothing);
-    uint64_t pos = 0l;
+START_TEST(empty_containers) {
+    cj_assert_tks_eq((cj_token_t [2]){
+        cj_object_push,
+        cj_object_pop
+    }, 2, "{}");
 
-    uint64_t n;
-    while ((n = cj_microhttpd_callback(it, pos, buf + pos, buf_size)) != MHD_CONTENT_READER_END_OF_STREAM) {
-        pos += n;
-    }
-    *(buf + pos) = '\0';
-    cj_token_stream_free(it);
-
-    ck_assert_str_eq(buf, "[]");
-
-    free(buf);
+    cj_assert_tks_eq((cj_token_t [2]){
+        cj_array_push,
+        cj_array_pop
+    }, 2, "[]");
 }
 
 END_TEST
 
 
-START_TEST(test_non_empty_array) {
-    size_t buf_size = 1000;
-    char * buf = (char *) malloc(sizeof (char) * buf_size);
-    cj_token_t tks[4] = {
+START_TEST(test_non_empty_arrays) {
+    cj_assert_tks_eq((cj_token_t [6]){
+        cj_array_push,
         cj_string("ciao"),
         cj_null,
         cj_number(43),
-        //cj_string("miao"),
-        cj_string("bau")
-    };
-    _tokens_t ws = {-1, 4, tks};
+        cj_string("bau"),
+        cj_array_pop
+    }, 6, "[\"ciao\",null,43,\"bau\"]");
+}
 
-    cj_token_stream_t *it = cj_token_stream_new(&ws, _next_token, _free_nothing);
-    uint64_t pos = 0l;
+END_TEST
 
-    uint64_t n;
-    while ((n = cj_microhttpd_callback(it, pos, buf + pos, buf_size)) != MHD_CONTENT_READER_END_OF_STREAM) {
-        pos += n;
-    }
-    *(buf + pos) = '\0';
-    cj_token_stream_free(it);
-
-    ck_assert_str_eq(buf, "[\"ciao\",null,43,\"bau\"]");
-
-    free(buf);
+START_TEST(test_non_empty_objects) {
+    cj_assert_tks_eq((cj_token_t [8]){
+        cj_object_push,
+        cj_key("ciao"),
+        cj_null,
+        cj_key("miao"),
+        cj_string("bau"),
+        cj_key("bau"),
+        cj_number(-5),
+        cj_object_pop
+    }, 8, "{\"ciao\":null,\"miao\":\"bau\",\"bau\":-5}");
 }
 
 END_TEST
@@ -141,22 +141,27 @@ END_TEST
 
 Suite * cj_array_simple_suite(void) {
     Suite *s;
-    TCase *tc_empty, *tc_non_empty, *tc_free;
+    TCase *tc_objs, *tc_empty_obj, *tc_non_empty, *tc_free;
 
-    s = suite_create("Array");
+    s = suite_create("Tokens serialization");
 
     /* JSON test cases */
-    tc_empty = tcase_create("Empty Array");
-    tcase_add_test(tc_empty, test_empty_array);
-    suite_add_tcase(s, tc_empty);
 
-    tc_non_empty = tcase_create("Not Empty Array");
-    tcase_add_test(tc_non_empty, test_non_empty_array);
+    tc_empty_obj = tcase_create("Empty Containers");
+    tcase_add_test(tc_empty_obj, empty_containers);
+    suite_add_tcase(s, tc_empty_obj);
+
+    tc_non_empty = tcase_create("Not Empty Arrays");
+    tcase_add_test(tc_non_empty, test_non_empty_arrays);
     suite_add_tcase(s, tc_non_empty);
 
-    tc_free = tcase_create("Free Iterator");
-    tcase_add_test(tc_free, test_free);
+    tc_free = tcase_create("Single Values");
+    tcase_add_test(tc_free, single_values);
     suite_add_tcase(s, tc_free);
+
+    tc_objs = tcase_create("Non Empty Objects");
+    tcase_add_test(tc_objs, test_non_empty_objects);
+    suite_add_tcase(s, tc_objs);
 
     return s;
 

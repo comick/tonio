@@ -24,7 +24,7 @@
 
 #include "json.h"
 
-#define _CJ_VALUE_PUSH (CJ_ARRAY_PUSH | CJ_NULL | CJ_OBJECT_PUSH | CJ_TRUE | CJ_FALSE | CJ_STRING | CJ_NUMBER)
+#define _CJ_VALUE_PUSH (CJ_ARRAY_PUSH | CJ_KEY | CJ_NULL | CJ_OBJECT_PUSH | CJ_TRUE | CJ_FALSE | CJ_STRING | CJ_NUMBER)
 #define _CJ_VALUE_POP (CJ_ARRAY_POP | CJ_NULL | CJ_OBJECT_POP | CJ_TRUE | CJ_FALSE | CJ_STRING | CJ_NUMBER)
 
 struct cj_token_stream {
@@ -35,6 +35,7 @@ struct cj_token_stream {
     cj_token_stream_free_t free;
 };
 
+const cj_token_t cj_eos = {CJ_NONE, .value.str = NULL};
 const cj_token_t cj_null = {CJ_NULL, .value.str = "null"};
 const cj_token_t cj_true = {CJ_TRUE, .value.str = "true"};
 const cj_token_t cj_false = {CJ_FALSE, .value.str = "false"};
@@ -82,11 +83,12 @@ void cj_token_stream_free(void *cls) {
 ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max) {
     cj_token_stream_t *ts = (cj_token_stream_t *) cls;
 
-    if (ts->expected_tokens == 0) {
+    cj_token_t tk = ts->next(ts->cls);
+
+    if (tk.type == CJ_NONE) {
         return MHD_CONTENT_READER_END_OF_STREAM;
     }
 
-    cj_token_t tk = ts->next(ts->cls);
 
     int offset = 0;
 
@@ -113,6 +115,8 @@ ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max) {
             memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
             return strlen(tk.value.str);
         case CJ_NULL:
+        case CJ_TRUE:
+        case CJ_FALSE:
             memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
             offset += strlen(tk.value.str);
             return offset;

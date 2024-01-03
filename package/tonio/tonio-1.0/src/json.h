@@ -44,6 +44,7 @@ typedef struct cj_token {
     } value;
 } cj_token_t;
 
+extern const cj_token_t cj_eos;
 extern const cj_token_t cj_null;
 extern const cj_token_t cj_true;
 extern const cj_token_t cj_false;
@@ -54,6 +55,7 @@ extern const cj_token_t cj_object_pop;
 
 cj_token_t cj_string(char *buf);
 cj_token_t cj_number(double n);
+cj_token_t cj_key(char *buf);
 
 /** Token streams and interfaces. */
 typedef struct cj_token_stream cj_token_stream_t;
