@@ -37,6 +37,7 @@
 // TODO make configurable
 //#define WLAN_IF "wlp9s0"
 #define WLAN_IF "wlan0"
+//#define SYSLOG_PATH "/var/log/syslog"
 #define SYSLOG_PATH "/var/log/messages"
 
 #define MIME_APPLICATION_JSON "application/json"
@@ -52,8 +53,6 @@
 #define FILE_EXT_JS_LEN strlen(FILE_EXT_JS)
 #define FILE_EXT_CSS_LEN strlen(FILE_EXT_CSS)
 #define FILE_EXT_HTML_LEN strlen(FILE_EXT_HTML)
-
-#define STATUS_TAG_JSON_FMT "{\"present\":%s,\"id\":\"%02X%02X%02X%02X\",\"track_current\":%d,\"track_total\":%d,\"track_name\":\"%s\",\"internet\":%s}"
 
 #define SETTINGS_JSON_FMT "{\"essid\":\"%s\",\"pin_prev\":%lu,\"pin_next\":%lu,\"pin_volup\":%lu,\"pin_voldown\":%lu,\"pin_rfid\":%lu,\"spi_rfid\":\"%s\",\"gpio_chip\":\"%s\",\"factory_new\":%s}"
 
@@ -76,7 +75,7 @@ struct tn_http {
 
     int http_port;
     char *http_root;
-
+    cj_token_t status_tks[12];
     struct MHD_Daemon *mhd_daemon;
     bool internet_connected;
     tn_media_t *media;
@@ -93,36 +92,34 @@ static int _handle_status(void *cls, struct MHD_Connection *connection,
     tn_http_t *self = (tn_http_t *) cls;
     struct MHD_Response *response;
     int ret;
-    char *page = "";
-    long page_len = 0;
-    uint8_t *card_id = self->selected_card_id;
+    uint32_t card_id =
+            self->selected_card_id[0] << 24 |
+            self->selected_card_id[1] << 16 |
+            self->selected_card_id[2] << 8 |
+            self->selected_card_id[3];
 
-    const char *internet_status = self->internet_connected
-            ? cj_true.value.str
-            : cj_false.value.str;
-    const char *tag_present = (card_id[0] | card_id[1] | card_id[2] | card_id[3])
-            ? cj_true.value.str
-            : cj_false.value.str;
     bool playing = tn_media_is_playing(self->media);
-    int current_track = -1, track_total = -1;
-    char *track_name = "";
 
-    if (playing) {
-        current_track = tn_media_track_current(self->media);
-        track_total = tn_media_track_total(self->media);
-        track_name = tn_media_track_name(self->media);
-    }
+    self->status_tks[2] = card_id ? cj_number(card_id) : cj_null;
+    self->status_tks[4] = playing ? cj_number(tn_media_track_current(self->media)) : cj_null;
+    self->status_tks[6] = playing ? cj_number(tn_media_track_total(self->media)) : cj_null;
+    self->status_tks[8] = playing ? cj_string(tn_media_track_name(self->media)) : cj_null;
+    self->status_tks[10] = self->internet_connected ? cj_true : cj_false;
 
-    page_len = snprintf(NULL, 0, STATUS_TAG_JSON_FMT, tag_present,
-            card_id[0], card_id[1], card_id[2], card_id[3],
-            current_track, track_total, track_name, internet_status);
-    page = malloc(page_len + 1);
-    snprintf(page, page_len + 1, STATUS_TAG_JSON_FMT, tag_present,
-            card_id[0], card_id[1], card_id[2], card_id[3],
-            current_track, track_total, track_name, internet_status);
+    cj_tokens_it_t *tks_it = malloc(sizeof (cj_tokens_it_t));
+    tks_it->current = 0;
+    tks_it->count = 12;
+    tks_it->tks = self->status_tks;
 
-    response = MHD_create_response_from_buffer(page_len,
-            (void*) page, MHD_RESPMEM_MUST_FREE);
+
+    cj_token_stream_t *status_ts = cj_token_stream_new(tks_it, cj_next_token, NULL);
+
+    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
+            cj_microhttpd_callback,
+            status_ts,
+            cj_token_stream_free
+            );
+
     P_CHECK(response, return MHD_NO);
 
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_APPLICATION_JSON);
@@ -338,12 +335,14 @@ static enum MHD_Result _handle_log(void *cls, struct MHD_Connection *connection,
 typedef struct {
     int iwsocket;
     wireless_scan *scan_result;
+    bool done;
 } _iwlist_json_status_t;
 
 static cj_token_t _iwlist_json_next(void *cls) {
     _iwlist_json_status_t *sts = (_iwlist_json_status_t *) cls;
 
     if (sts->iwsocket == 0) {
+        sts->done = false;
         wireless_scan_head head;
         iwrange range;
 
@@ -356,8 +355,11 @@ static cj_token_t _iwlist_json_next(void *cls) {
         return cj_array_push;
     }
 
-    if (sts->scan_result == NULL) {
+    if (sts->scan_result == NULL && !sts->done) {
+        sts->done = true;
         return cj_array_pop;
+    } else if (sts->scan_result == NULL && sts->done) {
+        return cj_eos;
     } else {
         char *res = sts->scan_result->b.essid;
         sts->scan_result = sts->scan_result->next;
@@ -385,6 +387,7 @@ static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
     syslog(LOG_DEBUG, "Wireless list requested");
 
     _iwlist_json_status_t *sts = calloc(1, sizeof (_iwlist_json_status_t));
+    sts->iwsocket = 0;
 
     cj_token_stream_t *iwlist_it = cj_token_stream_new(sts, _iwlist_json_next, _iwlist_json_free);
 
@@ -405,11 +408,13 @@ static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
 struct _library_tags_cls {
     DIR *dir;
     char *library_root;
+    bool done;
 };
 
 static cj_token_t _library_tags_json_next(void *cls) {
     struct _library_tags_cls *info = (struct _library_tags_cls *) cls;
     if (info ->dir == NULL) {
+        info->done = false;
         info->dir = opendir(info->library_root);
         P_CHECK(info->dir, 3);
         return cj_array_push;
@@ -425,8 +430,11 @@ static cj_token_t _library_tags_json_next(void *cls) {
     }
     if (ent != NULL) {
         return cj_string(ent->d_name);
-    } else {
+    } else if (!info->done) {
+        info->done = true;
         return cj_array_pop;
+    } else {
+        return cj_eos;
     }
 }
 
@@ -553,6 +561,19 @@ tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg
     self->cfg = cfg;
 
     self->internet_connected = false;
+
+    self->status_tks[0] = cj_object_push;
+    self->status_tks[1] = cj_key("card_id");
+    self->status_tks[2] = cj_null;
+    self->status_tks[3] = cj_key("track_current");
+    self->status_tks[4] = cj_null;
+    self->status_tks[5] = cj_key("track_total");
+    self->status_tks[6] = cj_null;
+    self->status_tks[7] = cj_key("track_name");
+    self->status_tks[8] = cj_null;
+    self->status_tks[9] = cj_key("internet");
+    self->status_tks[10] = self->internet_connected ? cj_true : cj_false;
+    self->status_tks[11] = cj_object_pop;
 
     self->mhd_daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD,
             self->http_port, NULL, NULL,

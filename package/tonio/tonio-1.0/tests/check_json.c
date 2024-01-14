@@ -24,26 +24,8 @@
 
 #include "../src/json.h"
 
-typedef struct _tokens_it {
-    int current;
-    const int count;
-    const cj_token_t *tks;
-} _tokens_it_t;
-
-static cj_token_t _next_token(void *cls) {
-    _tokens_it_t *cd = (_tokens_it_t *) cls;
-
-    if (cd->current == cd->count) {
-        return cj_eos;
-    }
-
-    int pos = cd->current;
-    cd->current += 1;
-    return cd->tks[pos];
-}
-
 static void _free_tokens_it(void *cls) {
-    _tokens_it_t *cd = (_tokens_it_t *) cls;
+    cj_tokens_it_t *cd = (cj_tokens_it_t *) cls;
     cd->current = -1;
 }
 
@@ -51,9 +33,9 @@ static void cj_assert_tks_eq(cj_token_t tks[], int count, const char *exp) {
     size_t buf_size = 1000;
     char *buf = (char *) malloc(sizeof (char) * buf_size);
 
-    _tokens_it_t tks_it = {0, count, tks};
+    cj_tokens_it_t tks_it = {0, count, tks};
 
-    cj_token_stream_t *ts = cj_token_stream_new(&tks_it, _next_token, _free_tokens_it);
+    cj_token_stream_t *ts = cj_token_stream_new(&tks_it, cj_next_token, _free_tokens_it);
     uint64_t pos = 0l;
 
     uint64_t n;
@@ -143,7 +125,7 @@ Suite * cj_array_simple_suite(void) {
     Suite *s;
     TCase *tc_objs, *tc_empty_obj, *tc_non_empty, *tc_free;
 
-    s = suite_create("Tokens serialization");
+    s = suite_create("CJ serialization");
 
     /* JSON test cases */
 

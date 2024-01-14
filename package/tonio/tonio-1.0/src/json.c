@@ -44,7 +44,7 @@ const cj_token_t cj_array_pop = {CJ_ARRAY_POP, .value.str = "]"};
 const cj_token_t cj_object_push = {CJ_OBJECT_PUSH, .value.str = "{"};
 const cj_token_t cj_object_pop = {CJ_OBJECT_POP, .value.str = "}"};
 
-cj_token_t cj_string(char *buf) {
+cj_token_t cj_string(const char *buf) {
     if (buf == NULL) {
         return cj_null;
     }
@@ -55,7 +55,7 @@ cj_token_t cj_number(double n) {
     return (cj_token_t){ CJ_NUMBER, .value.number = n};
 }
 
-cj_token_t cj_key(char *buf) {
+cj_token_t cj_key(const char *buf) {
     if (buf == NULL) {
         return cj_null;
     }
@@ -76,7 +76,9 @@ cj_token_stream_t *cj_token_stream_new(void * cls,
 
 void cj_token_stream_free(void *cls) {
     cj_token_stream_t *it = (cj_token_stream_t *) cls;
-    it->free(it->cls);
+    if (it->free != NULL) {
+        it->free(it->cls);
+    }
     free(it);
 }
 

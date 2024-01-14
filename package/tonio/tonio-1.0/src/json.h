@@ -36,11 +36,11 @@ typedef enum cj_token_type {
 } cj_token_type_t;
 
 typedef struct cj_token {
-    const cj_token_type_t type;
+    cj_token_type_t type;
 
-    const union {
+    union {
         const char *str;
-        const double number;
+        double number;
     } value;
 } cj_token_t;
 
@@ -53,9 +53,9 @@ extern const cj_token_t cj_array_pop;
 extern const cj_token_t cj_object_push;
 extern const cj_token_t cj_object_pop;
 
-cj_token_t cj_string(char *buf);
+cj_token_t cj_string(const char *buf);
 cj_token_t cj_number(double n);
-cj_token_t cj_key(char *buf);
+cj_token_t cj_key(const char *buf);
 
 /** Token streams and interfaces. */
 typedef struct cj_token_stream cj_token_stream_t;
@@ -68,5 +68,26 @@ cj_token_stream_t *cj_token_stream_new(void *cls, cj_token_stream_next_t nxt, cj
 void cj_token_stream_free(void *cls);
 
 ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max);
+
+/** Utility things for simple static JSON structures. */
+typedef struct cj_tokens_it {
+    int current;
+    int count;
+    cj_token_t *tks;
+} cj_tokens_it_t;
+
+static cj_token_t cj_next_token(void *cls) {
+    
+    cj_tokens_it_t *cd = (cj_tokens_it_t *) cls;
+
+    if (cd->current == cd->count) {
+        return cj_eos;
+    }
+
+    int pos = cd->current;
+    cd->current += 1;
+    return cd->tks[pos];
+}
+
 
 #endif /* JSON_H */
