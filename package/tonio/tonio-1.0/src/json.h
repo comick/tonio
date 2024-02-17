@@ -53,6 +53,7 @@ extern const cj_token_t cj_array_pop;
 extern const cj_token_t cj_object_push;
 extern const cj_token_t cj_object_pop;
 
+// TODO think of varargs
 cj_token_t cj_string(const char *buf);
 cj_token_t cj_number(double n);
 cj_token_t cj_key(const char *buf);
@@ -60,13 +61,18 @@ cj_token_t cj_key(const char *buf);
 /** Token streams and interfaces. */
 typedef struct cj_token_stream cj_token_stream_t;
 
+// Callback for next element in token stream.
 typedef cj_token_t(*cj_token_stream_next_t) (void *cls);
+// Callback to free additional resources when tkoen stream is consumed.
 typedef void (*cj_token_stream_free_t) (void *cls);
 
+// Creates a new token stream.
 cj_token_stream_t *cj_token_stream_new(void *cls, cj_token_stream_next_t nxt, cj_token_stream_free_t free);
 
+// Frees a token stream, including additional internal resources.
 void cj_token_stream_free(void *cls);
 
+// Step function writing stuff to out buffer.
 ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max);
 
 /** Utility things for simple static JSON structures. */

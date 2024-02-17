@@ -387,7 +387,6 @@ static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
     syslog(LOG_DEBUG, "Wireless list requested");
 
     _iwlist_json_status_t *sts = calloc(1, sizeof (_iwlist_json_status_t));
-    sts->iwsocket = 0;
 
     cj_token_stream_t *iwlist_it = cj_token_stream_new(sts, _iwlist_json_next, _iwlist_json_free);
 

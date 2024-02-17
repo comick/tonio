@@ -91,7 +91,6 @@ ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max) {
         return MHD_CONTENT_READER_END_OF_STREAM;
     }
 
-
     int offset = 0;
 
     if ((tk.type & _CJ_VALUE_PUSH) && (ts->last_token_type & _CJ_VALUE_POP)) {
@@ -103,19 +102,9 @@ ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max) {
 
     switch (tk.type) {
         case CJ_ARRAY_PUSH:
-            memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
-            return strlen(tk.value.str);
         case CJ_ARRAY_POP:
-            ts->expected_tokens = 0;
-            memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
-            return strlen(tk.value.str);
         case CJ_OBJECT_PUSH:
-            memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
-            return strlen(tk.value.str);
         case CJ_OBJECT_POP:
-            ts->expected_tokens = 0;
-            memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
-            return strlen(tk.value.str);
         case CJ_NULL:
         case CJ_TRUE:
         case CJ_FALSE:
@@ -126,30 +115,20 @@ ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max) {
             offset += sprintf(buf + offset, "%g", tk.value.number);
             return offset;
         case CJ_KEY:
-            *(buf + offset) = '"';
-            offset += 1;
-
-            memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
-            offset += strlen(tk.value.str);
-            //free(next); // TODO free somewhere
-
-            *(buf + offset) = '"';
-            offset += 1;
-
-            *(buf + offset) = ':';
-            offset += 1;
-
-            return offset;
         case CJ_STRING:
             *(buf + offset) = '"';
             offset += 1;
 
             memcpy(buf + offset, tk.value.str, strlen(tk.value.str));
             offset += strlen(tk.value.str);
-            //free(next); // TODO free somewhere
 
             *(buf + offset) = '"';
             offset += 1;
+
+            if (tk.type == CJ_KEY) {
+                *(buf + offset) = ':';
+                offset += 1;
+            }
 
             return offset;
         default:
