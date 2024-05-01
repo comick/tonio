@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2023-2024 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -26,18 +26,22 @@ function libraryStageCreate() {
     const noButtonTpl = document.getElementById('no-button');
     const resourceNameTpl = document.getElementById('item-resource');
 
-    function playlistTitle(title, tracksTable) {
+    function playlistTitle(title, tracksTable, resources) {
         let titleElem = plTitle.content.firstChild.cloneNode(true);
-        titleElem.innerHTML = `➕ ${title}`;
-        titleElem.onclick = () => {
-            if (tracksTable.style.display === 'none') {
-                titleElem.innerHTML = `➖ ${title}`;
-                tracksTable.style.display = 'table';
-            } else {
-                titleElem.innerHTML = `➕ ${title}`;
-                tracksTable.style.display = 'none';
-            }
-        };
+        if (resources === null) {
+            titleElem.innerHTML = `⚠️️ ${title}`;
+        } else {
+            titleElem.innerHTML = `➕ ${title}`;
+            titleElem.onclick = () => {
+                if (tracksTable.style.display === 'none') {
+                    titleElem.innerHTML = `➖ ${title}`;
+                    tracksTable.style.display = 'table';
+                } else {
+                    titleElem.innerHTML = `➕ ${title}`;
+                    tracksTable.style.display = 'none';
+                }
+            };
+        }
         return titleElem;
     }
 
@@ -103,7 +107,7 @@ function libraryStageCreate() {
 
     function drawPlaylist(tagId, rootElem, resources, collapsed, previousTitleElem, previousTracksElem) {
         let tracksElem = playlistTable(collapsed);
-        let titleElem = playlistTitle(tagId, tracksElem);
+        let titleElem = playlistTitle(tagId, tracksElem, resources);
         if (previousTitleElem)
             rootElem.replaceChild(titleElem, previousTitleElem);
         else
@@ -116,8 +120,10 @@ function libraryStageCreate() {
 
         let redraw = drawPlaylist.bind(null, tagId, rootElem, resources, false, titleElem, tracksElem);
 
-        for (let i = 0; i < resources.length; i++) {
-            tracksElem.appendChild(playlistRow(i, resources, redraw));
+        if (resources !== null) {
+            for (let i = 0; i < resources.length; i++) {
+                tracksElem.appendChild(playlistRow(i, resources, redraw));
+            }
         }
     }
 
@@ -129,8 +135,12 @@ function libraryStageCreate() {
             rootElem.innerHTML = '';
 
             libraryTags.forEach(async tagId => {
-                let playlist = await (await fetch('/library/' + tagId)).text();
-                let resources = playlist.match(/[^\n]+/g).filter(res => !res.startsWith('#'));
+                let req = await fetch('/library/' + tagId);
+                let resources = null;
+                if (req.status === 200) {
+                    let playlist = await req.text();
+                    let resources = playlist.match(/[^\n]+/g).filter(res => !res.startsWith('#'));
+                }
                 drawPlaylist(tagId, rootElem, resources, true);
             });
         },

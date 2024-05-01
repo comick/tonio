@@ -19,6 +19,9 @@
 #ifndef JSON_H
 #define JSON_H
 
+#define CJ_END_OF_STREAM ((ssize_t) -1)
+#define CJ_END_WITH_ERROR ((ssize_t) -2)
+
 /** Token type, constants and factory functions. */
 
 typedef enum cj_token_type {
@@ -69,11 +72,23 @@ typedef void (*cj_token_stream_free_t) (void *cls);
 // Creates a new token stream.
 cj_token_stream_t *cj_token_stream_new(void *cls, cj_token_stream_next_t nxt, cj_token_stream_free_t free);
 
-// Frees a token stream, including additional internal resources.
+/**
+ * Callback to free additional resources associated to the stream.
+ * 
+ * @param cls pointer to additional stream resources.
+ */
 void cj_token_stream_free(void *cls);
 
-// Step function writing stuff to out buffer.
-ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max);
+/**
+ * Step function writing json to out buffer.
+ * 
+ * @param ts token stream.
+ * @param pos
+ * @param buf target buffer.
+ * @param max max number of bytes the buffer can accomodate.
+ * @return 
+ */
+ssize_t cj_token_stream_writer(cj_token_stream_t *ts, uint64_t pos, char *buf, size_t max);
 
 /** Utility things for simple static JSON structures. */
 typedef struct cj_tokens_it {

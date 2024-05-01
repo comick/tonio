@@ -39,7 +39,7 @@ static void cj_assert_tks_eq(cj_token_t tks[], int count, const char *exp) {
     uint64_t pos = 0l;
 
     uint64_t n;
-    while ((n = cj_microhttpd_callback(ts, pos, buf + pos, buf_size)) != MHD_CONTENT_READER_END_OF_STREAM) {
+    while ((n = cj_token_stream_writer(ts, pos, buf + pos, buf_size)) != MHD_CONTENT_READER_END_OF_STREAM) {
         pos += n;
     }
     *(buf + pos) = '\0';

@@ -20,7 +20,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <microhttpd.h>
+#include <stdint.h>
 
 #include "json.h"
 
@@ -82,13 +82,11 @@ void cj_token_stream_free(void *cls) {
     free(it);
 }
 
-ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max) {
-    cj_token_stream_t *ts = (cj_token_stream_t *) cls;
-
+ssize_t cj_token_stream_writer(cj_token_stream_t *ts, uint64_t pos, char *buf, size_t max) {
     cj_token_t tk = ts->next(ts->cls);
 
     if (tk.type == CJ_NONE) {
-        return MHD_CONTENT_READER_END_OF_STREAM;
+        return CJ_END_OF_STREAM;
     }
 
     int offset = 0;
@@ -112,7 +110,7 @@ ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max) {
             offset += strlen(tk.value.str);
             return offset;
         case CJ_NUMBER:
-            offset += sprintf(buf + offset, "%g", tk.value.number);
+            offset += snprintf(buf + offset, max, "%g", tk.value.number);
             return offset;
         case CJ_KEY:
         case CJ_STRING:
@@ -132,6 +130,6 @@ ssize_t cj_microhttpd_callback(void *cls, uint64_t pos, char *buf, size_t max) {
 
             return offset;
         default:
-            return MHD_CONTENT_READER_END_OF_STREAM;
+            return CJ_END_WITH_ERROR;
     }
 }

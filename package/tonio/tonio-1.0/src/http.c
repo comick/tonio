@@ -83,6 +83,18 @@ struct tn_http {
     uint8_t *selected_card_id;
 };
 
+/**
+ * Wraps cj_token_stream_writer to work with microhttpd callback.
+ */
+static ssize_t _token_stream_writer(void *ts, uint64_t pos, char *buf, size_t max) {
+    ssize_t ret = cj_token_stream_writer((cj_token_stream_t *) ts, pos, buf, max);
+    switch (ret) {
+        case CJ_END_OF_STREAM: return MHD_CONTENT_READER_END_OF_STREAM;
+        case CJ_END_WITH_ERROR: return MHD_CONTENT_READER_END_WITH_ERROR;
+        default: return ret;
+    }
+}
+
 static int _handle_status(void *cls, struct MHD_Connection *connection,
         const char *url,
         const char *method, const char *version,
@@ -115,7 +127,7 @@ static int _handle_status(void *cls, struct MHD_Connection *connection,
     cj_token_stream_t *status_ts = cj_token_stream_new(tks_it, cj_next_token, NULL);
 
     response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
-            cj_microhttpd_callback,
+            _token_stream_writer,
             status_ts,
             cj_token_stream_free
             );
@@ -391,7 +403,7 @@ static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
     cj_token_stream_t *iwlist_it = cj_token_stream_new(sts, _iwlist_json_next, _iwlist_json_free);
 
     response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 35,
-            cj_microhttpd_callback,
+            _token_stream_writer,
             iwlist_it,
             cj_token_stream_free
             );
@@ -415,7 +427,7 @@ static cj_token_t _library_tags_json_next(void *cls) {
     if (info ->dir == NULL) {
         info->done = false;
         info->dir = opendir(info->library_root);
-        P_CHECK(info->dir, 3);
+        P_CHECK(info->dir, return cj_eos);
         return cj_array_push;
     }
 
@@ -464,7 +476,7 @@ static enum MHD_Result _handle_library(void *cls, struct MHD_Connection *connect
     cj_token_stream_t *dir_it = cj_token_stream_new(lib_cls, _library_tags_json_next, _library_tags_json_free);
 
     response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
-            cj_microhttpd_callback,
+            _token_stream_writer,
             dir_it,
             cj_token_stream_free
             );
@@ -515,6 +527,22 @@ static int _handle_playlist(void *cls, struct MHD_Connection *connection,
     return ret;
 }
 
+static enum MHD_Result _handle_error(void *cls, struct MHD_Connection *connection,
+        const char *url,
+        const char *method, const char *version,
+        const char *upload_data,
+        size_t *upload_data_size, void **con_cls) {
+
+    struct MHD_Response *response = NULL;
+
+    syslog(LOG_ERR, "Handling error for: %s", url);
+
+    response = MHD_create_response_from_buffer(strlen("Internal Server Error"), "Internal Server Error", MHD_RESPMEM_MUST_COPY);
+
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
+    return MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, response);
+}
+
 enum MHD_Result tn_http_handle_request(void *cls, struct MHD_Connection *conn,
         const char *url,
         const char *method, const char *version,
@@ -546,6 +574,11 @@ enum MHD_Result tn_http_handle_request(void *cls, struct MHD_Connection *conn,
                 upload_data, upload_data_size, con_cls);
     }
 
+    if (ret == MHD_NO) {
+        ret = _handle_error(cls, conn, url, method, version, upload_data,
+                upload_data_size, con_cls);
+    }
+
     return ret;
 }
 
@@ -571,7 +604,7 @@ tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg
     self->status_tks[7] = cj_key("track_name");
     self->status_tks[8] = cj_null;
     self->status_tks[9] = cj_key("internet");
-    self->status_tks[10] = self->internet_connected ? cj_true : cj_false;
+    self->status_tks[10] = cj_false;
     self->status_tks[11] = cj_object_pop;
 
     self->mhd_daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD,
