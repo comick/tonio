@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2023-2024 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -83,7 +83,7 @@ bool tn_input_tag_select(tn_input_t *self, uint8_t *card_id) {
 
     uint8_t ret = MFRC522_SelectTag(card_id);
     syslog(LOG_INFO, "Card type: %s", MFRC522_TypeToString(MFRC522_ParseType(ret)));
-    return ret == 0;
+    return ret > 0;
 }
 
 int tn_input_btn_next(tn_input_t *self) {

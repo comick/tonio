@@ -8,7 +8,7 @@ gpiod-chip-name = 'gpiochip0'
 
 volume-max = 0.7
 mixer-card = 'default'
-mixer-selem = 'Headphone'
+mixer-selem = 'PCM'
 
 btn-track-previous = 18
 btn-track-next = 23

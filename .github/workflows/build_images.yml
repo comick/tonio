@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 env:
-  buildroot-version: 2024.02.1
+  buildroot-version: 2024.02.5
 
 jobs:
   build-supported-images:
@@ -20,7 +20,7 @@ jobs:
 
     steps:
         
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
             
     - name: Setup Buildroot ccache
       uses: actions/cache@v3
@@ -29,7 +29,7 @@ jobs:
         key: buildroot-${{ matrix.config }}-ccache
     
     - name: Setup Buildroot downloads cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.buildroot-dl
         key: buildroot-dl
@@ -49,7 +49,7 @@ jobs:
         make
     
     - name: Upload Images
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.config }} images
         path: |
@@ -64,7 +64,7 @@ jobs:
         make graph-build
 
     - name: Upload Graphs
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.config }} graphs
         path: 'buildroot-${{ env.buildroot-version }}/output/graphs'

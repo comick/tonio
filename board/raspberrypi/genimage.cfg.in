@@ -1,0 +1,39 @@
+image boot.vfat {
+	vfat {
+		files = {
+#BOOT_FILES#
+		}
+	}
+
+	size = 32M
+}
+
+image library.vfat {
+  vfat {
+    label = "TONIO"
+    extraargs = "-F 32"
+  }
+  mountpoint = "/library"
+  size = ${LIBRARY_VFAT_SIZE:-101%}
+}
+
+image sdcard.img {
+	hdimage {
+	}
+
+	partition boot {
+		partition-type = 0xC
+		bootable = "true"
+		image = "boot.vfat"
+	}
+
+	partition rootfs {
+		partition-type = 0x83
+		image = "rootfs.ext4"
+	}
+
+	partition library {
+		partition-type = 0xC
+		image = "library.vfat"
+	}
+}

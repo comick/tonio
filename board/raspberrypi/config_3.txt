@@ -19,7 +19,7 @@ disable_overscan=1
 # since using start_cd.elf
 gpu_mem=16
 
-# fixes rpi (3B, 3B+, 3A+, 4B and Zero W) ttyAMA0 serial console
+# Enable UART0 for serial console on ttyAMA0
 dtoverlay=miniuart-bt
 
 # disable bluetooth completely

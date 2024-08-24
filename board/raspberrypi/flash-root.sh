@@ -2,10 +2,13 @@
 
 ROOTFS_PATH=$1
 DEV=$2
+ROOT_PART=${DEV}2
 
-umount ${DEV}2 || true
+echo "Umounting ${ROOT_PART}."
+umount ${ROOT_PART} || true
 
-sudo dd if=$ROOTFS_PATH of=${DEV}2
+echo "Fashing $ROOTFS_PATH to ${ROOT_PART}"
+sudo dd if=$ROOTFS_PATH of=${ROOT_PART} bs=1M
 sync
 
-echo Done
+echo Done.
