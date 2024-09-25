@@ -13,7 +13,7 @@ jobs:
         run: |
           sudo apt-get -y update
           sudo apt-get -y install libvlc-dev libasound2-dev libconfuse-dev libgpiod-dev libmicrohttpd-dev libiw-dev check build-essential
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Configure
         run: |
           cd package/tonio/tonio-1.0
@@ -33,7 +33,7 @@ jobs:
           cd package/tonio/tonio-1.0
           make check || (cat tests/test-suite.log; true)
       - name: Upload Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tonio-test
           path: package/tonio/tonio-1.0/tests/*

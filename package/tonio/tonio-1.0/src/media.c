@@ -184,7 +184,11 @@ char *tn_media_track_name(tn_media_t *self) {
 
 static int _apply_saved_position(tn_media_t *self, libvlc_media_player_t * media_player, char *tag_playlist_path, tn_media_position_t *saved_position) {
 
-    I_CHECK(libvlc_media_list_player_play_item_at_index(self->media_list_player, saved_position->media_idx), return -1);
+    //I_CHECK(libvlc_media_list_player_play_item_at_index(self->media_list_player, saved_position->media_idx), return -1);
+    // This works despite returning -1. Keeping error check disable for the time being. TODO check again in a future libvlc release.
+    // Somehow related to this change https://github.com/videolan/vlc/commit/43383a5804ee348be1ddb3bbafe002a38d4d978e#diff-a36de6f208c4a4973d4c05c8e91b0fa46345724c478284ed46af08fbaa95c7f0R675.
+    // It was working ok before 9 months ago.
+    libvlc_media_list_player_play_item_at_index(self->media_list_player, saved_position->media_idx);
 
     if (libvlc_media_player_is_seekable(media_player)) {
 

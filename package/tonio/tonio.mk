@@ -19,8 +19,8 @@ $(eval $(autotools-package))
 
 tonio-deploy: tonio-rebuild
 	ssh root@$(target) '/etc/init.d/S15tonio stop'
-	scp $(TONIO_SITE)/www/index.html root@$(target):/usr/share/tonio/www/index.html
-	scp $(TONIO_SITE)/www/tonio.css root@$(target):/usr/share/tonio/www/tonio.css
-	scp $(TONIO_SITE)/www/tonio.js root@$(target):/usr/share/tonio/www/tonio.js
-	scp $(TARGET_DIR)/usr/bin/tonio root@$(target):/usr/bin/tonio
+	scp -O $(TONIO_SITE)/www/index.html root@$(target):/usr/share/tonio/www/index.html
+	scp -O $(TONIO_SITE)/www/tonio.css root@$(target):/usr/share/tonio/www/tonio.css
+	scp -O $(TONIO_SITE)/www/*.js root@$(target):/usr/share/tonio/www/
+	scp -O $(TARGET_DIR)/usr/bin/tonio root@$(target):/usr/bin/tonio
 	ssh root@$(target) '/etc/init.d/S15tonio start'
