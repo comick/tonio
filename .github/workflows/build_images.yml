@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 env:
-  buildroot-version: 2024.02.5
+  buildroot-version: 2024.08
 
 jobs:
   build-supported-images:

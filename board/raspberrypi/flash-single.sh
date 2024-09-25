@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
 ROOTFS_PATH=$1
-DEV=$2
-ROOT_PART=${DEV}2
+PART=$2
+DEV=$3
+ROOT_PART=${DEV}${PART}
 
 echo "Umounting ${ROOT_PART}."
 umount ${ROOT_PART} || true
