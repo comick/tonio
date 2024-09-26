@@ -47,8 +47,8 @@ static cfg_opt_t config_opts[] = {
     CFG_FLOAT(CFG_VOLUME_MAX, 0.7, CFGF_NONE),
     CFG_INT(CFG_BTN_TRACK_PREVIOUS, 18, CFGF_NONE),
     CFG_INT(CFG_BTN_TRACK_NEXT, 23, CFGF_NONE),
-    CFG_INT(CFG_BTN_VOLUME_DOWN, 24, CFGF_NONE),
-    CFG_INT(CFG_BTN_VOLUME_UP, 21, CFGF_NONE),
+    CFG_INT(CFG_BTN_VOLUME_DOWN, 21, CFGF_NONE),
+    CFG_INT(CFG_BTN_VOLUME_UP, 24, CFGF_NONE),
     CFG_INT(CFG_MFRC522_SWITCH, 25, CFGF_NONE),
     CFG_STR(CFG_MFRC522_SPI_DEV, "/dev/spidev0.0", CFGF_NONE),
     CFG_END()
@@ -161,8 +161,12 @@ int main(int argc, char** argv) {
                     last_next_state = current_next_state;
 
                     // volume kept continuous, more pleasant. TODO maybe add some timer to make is slower
-                    if (tn_input_btn_vol_down(input) == 1) tn_media_volume_down(media);
-                    if (tn_input_btn_vol_up(input) == 1) tn_media_volume_up(media);
+                    if (tn_input_btn_vol_down(input) > 0) {
+                        tn_media_volume_down(media);
+                    }
+                    if (tn_input_btn_vol_up(input) > 0) {
+                        tn_media_volume_up(media);
+                    }
 
                 }
 

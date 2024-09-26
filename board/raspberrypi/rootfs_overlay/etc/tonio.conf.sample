@@ -12,8 +12,8 @@ mixer-selem = 'PCM'
 
 btn-track-previous = 18
 btn-track-next = 23
-btn-volume-down = 24
-btn-volume-up = 21
+btn-volume-down = 21
+btn-volume-up = 24
 
 mfrc522-switch = 25
 mfrc522-spi-dev = "/dev/spidev0.0"
