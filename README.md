@@ -28,7 +28,6 @@ Supported hardware
 
 - Boards
   - Raspberry Pi 3
-  - Raspberry Pi 0 Wireless (fat kernel, untested audio)
 - RC522 RFID
 - Push buttons via `libgpiod` for volume and track control (optional)
 

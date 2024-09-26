@@ -16,7 +16,7 @@ jobs:
     
     strategy:
         matrix:
-            config: [raspberrypi3, raspberrypi0w]
+            config: [raspberrypi3]
 
     steps:
         
