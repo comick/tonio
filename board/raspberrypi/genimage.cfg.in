@@ -5,7 +5,7 @@ image boot.vfat {
 		}
 	}
 
-	size = 32M
+	size = 8M
 }
 
 image library.vfat {
