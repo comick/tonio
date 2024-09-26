@@ -139,7 +139,7 @@ function libraryStageCreate() {
                 let resources = null;
                 if (req.status === 200) {
                     let playlist = await req.text();
-                    let resources = playlist.match(/[^\n]+/g).filter(res => !res.startsWith('#'));
+                    resources = playlist.match(/[^\n]+/g).filter(res => !res.startsWith('#'));
                 }
                 drawPlaylist(tagId, rootElem, resources, true);
             });

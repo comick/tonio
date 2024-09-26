@@ -359,11 +359,12 @@ static cj_token_t _iwlist_json_next(void *cls) {
         iwrange range;
 
         sts->iwsocket = iw_sockets_open();
-        I_CHECK(sts->iwsocket, return cj_null);
-        I_CHECK(iw_get_range_info(sts->iwsocket, WLAN_IF, &range), return cj_null);
-        I_CHECK(iw_scan(sts->iwsocket, WLAN_IF, range.we_version_compiled, &head), return cj_null);
+        I_CHECK(sts->iwsocket, goto iwlist_begin);
+        I_CHECK(iw_get_range_info(sts->iwsocket, WLAN_IF, &range), goto iwlist_begin);
+        I_CHECK(iw_scan(sts->iwsocket, WLAN_IF, range.we_version_compiled, &head), goto iwlist_begin);
 
         sts->scan_result = head.result;
+    iwlist_begin:
         return cj_array_push;
     }
 

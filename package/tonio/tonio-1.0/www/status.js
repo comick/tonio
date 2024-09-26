@@ -28,13 +28,13 @@ function statusStageCreate() {
     let refreshStatusTimer;
 
     async function refreshStatus() {
-        let statusResponse = await (await fetch('/status')).json();
-        currentTagElem.innerHTML = (statusResponse.present && statusResponse.id) || 'none';
-        currentTrackElem.innerHTML = (typeof statusResponse.track_current === 'number') ? statusResponse.track_current : '-';
-        totalTracksElem.innerHTML = (statusResponse.track_total && statusResponse.track_total) || '-';
-        currentTrackResElem.innerHTML = (statusResponse.track_name && decodeURI(statusResponse.track_name)) || '-';
+        let resp = await (await fetch('/status')).json();
+        currentTagElem.innerHTML = (resp.card_id && `#${resp.card_id.toString(16).toUpperCase()}`) || '-';
+        currentTrackElem.innerHTML = (typeof resp.track_current === 'number') ? resp.track_current : '-';
+        totalTracksElem.innerHTML = (resp.track_total && resp.track_total) || '-';
+        currentTrackResElem.innerHTML = (resp.track_name && decodeURI(resp.track_name)) || '-';
 
-        if (statusResponse.internet === true) {
+        if (resp.internet === true) {
             inetConnected.style = 'display: block';
             inetDisconnected.style = 'display: none';
         } else {
