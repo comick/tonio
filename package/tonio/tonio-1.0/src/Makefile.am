@@ -1,9 +1,5 @@
 bin_PROGRAMS = tonio
-tonio_SOURCES = http.c json.c media.c mfrc522.c mfrc522_hal_linux.c tonio.c volume_mapping.c input.c
+tonio_SOURCES = http.c media.c mfrc522.c mfrc522_hal_linux.c tonio.c volume_mapping.c input.c
 
 tonio_CFLAGS = -g -Werror -Wall -Wextra -Wno-unused -pedantic @DEPENDENCIES_CFLAGS@
 tonio_LDADD = -lm -liw @DEPENDENCIES_LIBS@
-
-# for testing
-lib_LTLIBRARIES = libjson.la
-libjson_la_SOURCES = json.c json.h

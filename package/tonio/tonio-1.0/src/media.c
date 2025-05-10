@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2023 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2020-2025 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -31,6 +31,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <sys/syslog.h>
+#include <inttypes.h>
 
 #include "uthash.h"
 
@@ -75,8 +76,6 @@ static void _save_event_detach(tn_media_t *);
 static tn_media_position_t *_save_stream_positions(tn_media_t *);
 
 tn_media_t *tn_media_init(cfg_t *cfg) {
-    // alsa mixer for volume
-    snd_mixer_selem_id_t *selem_id = NULL;
 
     tn_media_t *self = malloc(sizeof (tn_media_t));
 
@@ -110,7 +109,9 @@ tn_media_t *tn_media_init(cfg_t *cfg) {
         I_CHECK(snd_mixer_selem_register(self->mixer, NULL, NULL), goto init_error);
         I_CHECK(snd_mixer_load(self->mixer), goto init_error);
 
-        snd_mixer_selem_id_alloca(&selem_id);
+        // alsa mixer for volume
+        snd_mixer_selem_id_t *selem_id = NULL;
+        snd_mixer_selem_id_alloca(&selem_id);// TODO never freed.
         snd_mixer_selem_id_set_index(selem_id, 0);
         snd_mixer_selem_id_set_name(selem_id, cfg_getstr(cfg, CFG_MIXER_SELEM));
         self->mixer_elem = snd_mixer_find_selem(self->mixer, selem_id);
@@ -134,7 +135,7 @@ tn_media_t *tn_media_init(cfg_t *cfg) {
 
     FILE *positions_file = fopen(self->positions_filepath, "r");
     if (positions_file != NULL) {
-        int i = 0;
+        uint32_t i = 0;
 
         I_CHECK(fseek(positions_file, 0L, SEEK_END), goto init_error);
         long int size = ftell(positions_file);
@@ -149,11 +150,11 @@ tn_media_t *tn_media_init(cfg_t *cfg) {
             res = fread(&(saved_pos->media_pos), sizeof (float), 1, positions_file);
             I_CHECK(res - 1, goto init_error);
             HASH_ADD_INT(self->media_positions, card_id, saved_pos);
-            syslog(LOG_INFO, "Loaded playlist position for : %u @ %d : %f", saved_pos->card_id, saved_pos->media_idx, saved_pos->media_pos);
+            syslog(LOG_INFO, "Loaded playlist position for : %" PRIu32 "@%d: %f", saved_pos->card_id, saved_pos->media_idx, saved_pos->media_pos);
             i++;
         }
         fclose(positions_file);
-        syslog(LOG_INFO, "Loaded %d stream positions from %s", i, self->positions_filepath);
+        syslog(LOG_INFO, "Loaded %" PRIu32 " stream positions from %s", i, self->positions_filepath);
     }
 
     syslog(LOG_INFO, "Media sub-system initialized: %s", self->audio_out);
@@ -219,22 +220,19 @@ static void _save_stream_positions_callback(const struct libvlc_event_t *event, 
 
 bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
     bool played = false;
-    libvlc_media_t *media = NULL;
-    char *tag_playlist_path = NULL;
-    libvlc_media_player_t *media_player = NULL;
     sem_t is_playing;
 
     if (self->media_list_player != NULL) tn_media_stop(self);
 
     self->curr_card_id = card_id[0] << 24 | card_id[1] << 16 | card_id[2] << 8 | card_id[3];
 
-    tag_playlist_path = find_playlist_filename(self->media_root, card_id);
-
+    libvlc_media_t *media = NULL;
+    libvlc_media_player_t *media_player = NULL;
+    char *tag_playlist_path = find_playlist_filename(self->media_root, card_id);
     if (tag_playlist_path == NULL) {
         syslog(LOG_WARNING, "Cannot find playlist for %02X%02X%02X%02X.\n", card_id[0], card_id[1], card_id[2], card_id[3]);
         goto play_cleanup;
     }
-
     media = libvlc_media_new_path(self->vlc, tag_playlist_path);
     P_CHECK(media, goto play_cleanup);
 
@@ -402,7 +400,7 @@ static tn_media_position_t *_save_stream_positions(tn_media_t *self) {
     int curr_i;
     float curr_pos;
     char *tmp_file_name = NULL;
-    int i;
+    size_t i;
 
     tn_media_position_t *media_pos = NULL;
 
@@ -445,7 +443,7 @@ static tn_media_position_t *_save_stream_positions(tn_media_t *self) {
         fwrite(&(nxt->media_idx), sizeof (int), 1, positions_file);
         fwrite(&(nxt->media_pos), sizeof (float), 1, positions_file);
 
-        syslog(LOG_DEBUG, "Saved playlist position for: %u @ %d : %f", nxt->card_id, nxt->media_idx, nxt->media_pos);
+        syslog(LOG_DEBUG, "Saved playlist position for: %" PRIu32 " @ %d : %f", nxt->card_id, nxt->media_idx, nxt->media_pos);
     }
     fflush(positions_file);
     fclose(positions_file);
@@ -454,7 +452,7 @@ static tn_media_position_t *_save_stream_positions(tn_media_t *self) {
     I_CHECK(rename(tmp_file_name, self->positions_filepath), goto save_pos_clean);
     sem_post(&self->pos_file_mutex);
 
-    syslog(LOG_INFO, "Saved %d stream positions at %s", i, self->positions_filepath);
+    syslog(LOG_INFO, "Saved %zu stream positions at %s", i, self->positions_filepath);
 
 save_pos_clean:
     if (curr_media_player != NULL) libvlc_media_player_release(curr_media_player);

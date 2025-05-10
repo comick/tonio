@@ -28,6 +28,7 @@
 #include <microhttpd.h>
 #include <confuse.h>
 #include <signal.h>
+#include <inttypes.h>
 
 #include "http.h"
 #include "tonio.h"
@@ -59,7 +60,7 @@
 #define LIBRARY_URL_PATH "/library"
 
 #define CFG_SETBOOL(K) if (strcmp(key, K) == 0) { \
-    cfg_setbool(cfg, K, strcmp(cj_true.value.str, d) == 0 ? cfg_true : cfg_false); \
+    cfg_setbool(cfg, K, strcmp(cj_true.value.buf, d) == 0 ? cfg_true : cfg_false); \
 }
 
 #define CFG_SETINT(K) if (strcmp(key, K) == 0) { \
@@ -73,7 +74,7 @@
 struct tn_http {
     char *library_root;
 
-    int http_port;
+    uint16_t http_port;
     char *http_root;
     cj_token_t status_tks[12];
     struct MHD_Daemon *mhd_daemon;
@@ -87,7 +88,7 @@ struct tn_http {
  * Wraps cj_token_stream_writer to work with microhttpd callback.
  */
 static ssize_t _token_stream_writer(void *ts, uint64_t pos, char *buf, size_t max) {
-    ssize_t ret = cj_token_stream_writer((cj_token_stream_t *) ts, pos, buf, max);
+    ssize_t ret = cj_token_stream_writer((cj_token_stream_t *) ts, max, buf);
     switch (ret) {
         case CJ_END_OF_STREAM: return MHD_CONTENT_READER_END_OF_STREAM;
         case CJ_END_WITH_ERROR: return MHD_CONTENT_READER_END_WITH_ERROR;
@@ -102,8 +103,7 @@ static int _handle_status(void *cls, struct MHD_Connection *connection,
         size_t *upload_data_size, void **con_cls) {
 
     tn_http_t *self = (tn_http_t *) cls;
-    struct MHD_Response *response;
-    int ret;
+    
     uint32_t card_id =
             self->selected_card_id[0] << 24 |
             self->selected_card_id[1] << 16 |
@@ -112,21 +112,19 @@ static int _handle_status(void *cls, struct MHD_Connection *connection,
 
     bool playing = tn_media_is_playing(self->media);
 
+    char *tname = tn_media_track_name(self->media);
+
     self->status_tks[2] = card_id ? cj_number(card_id) : cj_null;
     self->status_tks[4] = playing ? cj_number(tn_media_track_current(self->media)) : cj_null;
     self->status_tks[6] = playing ? cj_number(tn_media_track_total(self->media)) : cj_null;
-    self->status_tks[8] = playing ? cj_string(tn_media_track_name(self->media)) : cj_null;
+    self->status_tks[8] = playing ? cj_string(strlen(tname), tname) : cj_null;
     self->status_tks[10] = self->internet_connected ? cj_true : cj_false;
 
-    cj_tokens_it_t *tks_it = malloc(sizeof (cj_tokens_it_t));
-    tks_it->current = 0;
-    tks_it->count = 12;
-    tks_it->tks = self->status_tks;
+    cj_static_tokens_it_t *tks_it = cj_static_tokens_it_new(12, self->status_tks);
 
+    cj_token_stream_t *status_ts = cj_token_stream_new(tks_it, cj_static_token_next, cj_static_tokens_it_free);
 
-    cj_token_stream_t *status_ts = cj_token_stream_new(tks_it, cj_next_token, NULL);
-
-    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
+    struct MHD_Response *response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
             _token_stream_writer,
             status_ts,
             cj_token_stream_free
@@ -135,7 +133,7 @@ static int _handle_status(void *cls, struct MHD_Connection *connection,
     P_CHECK(response, return MHD_NO);
 
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_APPLICATION_JSON);
-    ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+    int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);
 
     return ret;
@@ -174,9 +172,6 @@ static enum MHD_Result _handle_settings(void *cls, struct MHD_Connection *connec
         const char *upload_data,
         size_t *upload_data_size, void **con_cls) {
 
-    struct MHD_Response *response;
-    enum MHD_Result ret;
-
     tn_http_t *self = (tn_http_t *) cls;
 
     if (strcmp(method, MHD_HTTP_METHOD_POST) == 0) {
@@ -213,8 +208,8 @@ static enum MHD_Result _handle_settings(void *cls, struct MHD_Connection *connec
     iw_sockets_close(iw_sock);
 
     const char *factory_new = cfg_getbool(self->cfg, CFG_FACTORY_NEW) == cfg_true
-            ? cj_true.value.str
-            : cj_false.value.str;
+            ? cj_true.value.buf
+            : cj_false.value.buf;
     long pin_prev = cfg_getint(self->cfg, CFG_BTN_TRACK_PREVIOUS);
     long pin_next = cfg_getint(self->cfg, CFG_BTN_TRACK_NEXT);
     long pin_vol_up = cfg_getint(self->cfg, CFG_BTN_VOLUME_UP);
@@ -227,12 +222,12 @@ static enum MHD_Result _handle_settings(void *cls, struct MHD_Connection *connec
     page = malloc(page_len + 1);
     snprintf(page, page_len + 1, SETTINGS_JSON_FMT, wconfig.essid, pin_prev, pin_next, pin_vol_up, pin_vol_down, pin_rfid, spi_dev, gpio_chip, factory_new);
 
-    response = MHD_create_response_from_buffer(page_len, (void*) page, MHD_RESPMEM_MUST_FREE);
+    struct MHD_Response *response = MHD_create_response_from_buffer(page_len, (void*) page, MHD_RESPMEM_MUST_FREE);
     P_CHECK(response, return MHD_NO);
 
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_APPLICATION_JSON);
 
-    ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+    enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);
 
     return ret;
@@ -244,13 +239,6 @@ static enum MHD_Result _handle_static(void *cls, struct MHD_Connection *connecti
         const char *upload_data,
         size_t *upload_data_size, void **con_cls) {
 
-    struct MHD_Response *response = NULL;
-    struct stat tmp_stat;
-    unsigned int status_code = MHD_HTTP_OK;
-    int tmp_fd = -1;
-    char *static_filename = NULL;
-    char *mime_str = MIME_TEXT_PLAIN;
-    size_t static_filename_sz = 0;
     tn_http_t *self = (tn_http_t *) cls;
 
     syslog(LOG_DEBUG, "Static or other requested: %s", url);
@@ -261,11 +249,17 @@ static enum MHD_Result _handle_static(void *cls, struct MHD_Connection *connecti
 
     size_t url_len = strlen(url);
 
-    static_filename_sz = strlen(self->http_root) + url_len + 1;
-    static_filename = malloc(static_filename_sz);
+    size_t static_filename_sz = strlen(self->http_root) + url_len + 1;
+    char *static_filename = malloc(static_filename_sz);
     snprintf(static_filename, static_filename_sz, "%s%s", self->http_root, url);
 
-    tmp_fd = open(static_filename, O_RDONLY);
+    
+    int tmp_fd = open(static_filename, O_RDONLY);
+
+    struct MHD_Response *response = NULL;
+    unsigned int status_code = MHD_HTTP_OK;
+    char *mime_str = MIME_TEXT_PLAIN;
+    struct stat tmp_stat;
 
     if (tmp_fd >= 0 && fstat(tmp_fd, &tmp_stat) >= 0) {
         // some simple ext matching to mimetype. libmagic, while a better solution is too big.
@@ -374,9 +368,9 @@ static cj_token_t _iwlist_json_next(void *cls) {
     } else if (sts->scan_result == NULL && sts->done) {
         return cj_eos;
     } else {
-        char *res = sts->scan_result->b.essid;
+        wireless_scan *res = sts->scan_result;
         sts->scan_result = sts->scan_result->next;
-        return cj_string(res);
+        return cj_string(res->b.essid_len, res->b.essid);
     }
 }
 
@@ -432,16 +426,16 @@ static cj_token_t _library_tags_json_next(void *cls) {
         return cj_array_push;
     }
 
-    DIR *dir = info->dir;
     struct dirent *ent;
 
     errno = 0;
-    ent = readdir(dir);
+    ent = readdir(info->dir);
     while (ent != NULL && (ent->d_type != DT_DIR || strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)) {
-        ent = readdir(dir);
+        ent = readdir(info->dir);
     }
+
     if (ent != NULL) {
-        return cj_string(ent->d_name);
+        return cj_string(strlen(ent->d_name), ent->d_name);// may use d_reclen?
     } else if (!info->done) {
         info->done = true;
         return cj_array_pop;
@@ -465,8 +459,6 @@ static enum MHD_Result _handle_library(void *cls, struct MHD_Connection *connect
         size_t *upload_data_size, void **con_cls) {
 
     tn_http_t *self = (tn_http_t *) cls;
-    struct MHD_Response *response;
-    enum MHD_Result ret;
 
     syslog(LOG_DEBUG, "Library requested");
     syslog(LOG_ERR, "%s", self->library_root);
@@ -476,14 +468,14 @@ static enum MHD_Result _handle_library(void *cls, struct MHD_Connection *connect
     lib_cls->library_root = self->library_root;
     cj_token_stream_t *dir_it = cj_token_stream_new(lib_cls, _library_tags_json_next, _library_tags_json_free);
 
-    response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
+    struct MHD_Response *response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 11,
             _token_stream_writer,
             dir_it,
             cj_token_stream_free
             );
     P_CHECK(response, return MHD_NO);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_APPLICATION_JSON);
-    ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+    enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);
 
     return ret;
@@ -496,18 +488,16 @@ static int _handle_playlist(void *cls, struct MHD_Connection *connection,
         size_t *upload_data_size, void **con_cls) {
 
     tn_http_t *self = (tn_http_t *) cls;
-    struct MHD_Response *response;
-    int ret;
-    struct stat playlist_stat;
 
     const char *playlist_id = url + strlen(LIBRARY_URL_PATH) + 1;
 
     unsigned long int playlist_tag_long = strtoul(playlist_id, NULL, 16);
-    uint8_t playlist_tag[4];
-    playlist_tag[0] = playlist_tag_long >> 24 & 0xFF;
-    playlist_tag[1] = playlist_tag_long >> 16 & 0xFF;
-    playlist_tag[2] = playlist_tag_long >> 8 & 0xFF;
-    playlist_tag[3] = playlist_tag_long >> 0 & 0xFF;
+    uint8_t playlist_tag[4] = {
+        playlist_tag_long >> 24 & 0xFF,
+        playlist_tag_long >> 16 & 0xFF,
+        playlist_tag_long >> 8 & 0xFF,
+        playlist_tag_long >> 0 & 0xFF
+    };
 
     char *file_name = find_playlist_filename(self->library_root, playlist_tag);
 
@@ -515,13 +505,15 @@ static int _handle_playlist(void *cls, struct MHD_Connection *connection,
 
     int playlist_fd = open(file_name, O_RDONLY);
     I_CHECK(playlist_fd, return MHD_NO);
+
+    struct stat playlist_stat;
     I_CHECK(fstat(playlist_fd, &playlist_stat), return MHD_NO);
 
-    response = MHD_create_response_from_fd(playlist_stat.st_size, playlist_fd);
+    struct MHD_Response *response = MHD_create_response_from_fd(playlist_stat.st_size, playlist_fd);
 
     P_CHECK(response, return MHD_NO);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
-    ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+    enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);
     free(file_name);
 
@@ -534,11 +526,9 @@ static enum MHD_Result _handle_error(void *cls, struct MHD_Connection *connectio
         const char *upload_data,
         size_t *upload_data_size, void **con_cls) {
 
-    struct MHD_Response *response = NULL;
-
     syslog(LOG_ERR, "Handling error for: %s", url);
 
-    response = MHD_create_response_from_buffer(strlen("Internal Server Error"), "Internal Server Error", MHD_RESPMEM_MUST_COPY);
+    struct MHD_Response *response = MHD_create_response_from_buffer(strlen("Internal Server Error"), "Internal Server Error", MHD_RESPMEM_MUST_COPY);
 
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
     return MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, response);
@@ -589,24 +579,21 @@ tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg
     self->media = media;
     self->selected_card_id = selected_card_id;
     self->library_root = cfg_getstr(cfg, CFG_MEDIA_ROOT);
-    self->http_port = cfg_getint(cfg, CFG_HTTP_PORT);
+    self->http_port = (uint16_t)cfg_getint(cfg, CFG_HTTP_PORT);
     self->http_root = cfg_getstr(cfg, CFG_HTTP_ROOT);
     self->cfg = cfg;
 
     self->internet_connected = false;
 
-    self->status_tks[0] = cj_object_push;
-    self->status_tks[1] = cj_key("card_id");
-    self->status_tks[2] = cj_null;
-    self->status_tks[3] = cj_key("track_current");
-    self->status_tks[4] = cj_null;
-    self->status_tks[5] = cj_key("track_total");
-    self->status_tks[6] = cj_null;
-    self->status_tks[7] = cj_key("track_name");
-    self->status_tks[8] = cj_null;
-    self->status_tks[9] = cj_key("internet");
-    self->status_tks[10] = cj_false;
-    self->status_tks[11] = cj_object_pop;
+    memcpy(self->status_tks, (cj_token_t [12]) {
+        cj_object_push,
+            cj_key(7, "card_id"), cj_null,
+            cj_key(13, "track_current"), cj_null,
+            cj_key(11, "track_total"), cj_null,
+            cj_key(10, "track_name"), cj_null,
+            cj_key(9, "internet"), cj_false,
+        cj_object_pop
+    }, sizeof(self->status_tks));
 
     self->mhd_daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD,
             self->http_port, NULL, NULL,
@@ -614,7 +601,7 @@ tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg
             MHD_OPTION_END);
     P_CHECK(self->mhd_daemon, goto http_init_cleanup);
 
-    syslog(LOG_INFO, "HTTP Initialized on port %d", self->http_port);
+    syslog(LOG_INFO, "HTTP Initialized on port %" PRIu16, self->http_port);
     return self;
 
 http_init_cleanup:

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2023 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2020-2025 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 #include <stdbool.h>
 #include <confuse.h>
 #include <signal.h>
+#include <inttypes.h>
 
 #include "config.h"
 #include "tonio.h"
@@ -70,6 +71,7 @@ static tn_http_t *http = NULL;
 
 void _request_reload() {
     syslog(LOG_ALERT, "Reload requested.");
+    // TODO use mutex or semaphore or whatever synchronized.
     _reload_requested = true;
 }
 
@@ -91,7 +93,7 @@ static void _keep_alive() {
     nanosleep(&_poll_interval, NULL);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char* argv[argc + 1]) {
 
     //Recognized card ID
     uint8_t card_id[5] = {0x00,};
@@ -131,7 +133,7 @@ int main(int argc, char** argv) {
             _keep_alive();
         }
 
-        syslog(LOG_INFO, "Card uid detected: %02X%02X%02X%02X", card_id[0], card_id[1], card_id[2], card_id[3]);
+        syslog(LOG_INFO, "Card uid detected: %02" PRIX8 "%02" PRIX8 "%02" PRIX8 "%02" PRIX8, card_id[0], card_id[1], card_id[2], card_id[3]);
 
         if (!tn_input_tag_select(input, card_id)) {
             syslog(LOG_ERR, "Card select failed");
