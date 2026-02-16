@@ -36,8 +36,8 @@
 #include "json.h"
 
 // TODO make configurable
-//#define WLAN_IF "wlp9s0"
-#define WLAN_IF "wlan0"
+#define WLAN_IF "wlp9s0"
+//#define WLAN_IF "wlan0"
 //#define SYSLOG_PATH "/var/log/syslog"
 #define SYSLOG_PATH "/var/log/messages"
 
@@ -499,19 +499,54 @@ static int _handle_playlist(void *cls, struct MHD_Connection *connection,
         playlist_tag_long >> 0 & 0xFF
     };
 
+    if (strcmp(method, MHD_HTTP_METHOD_POST) == 0) {
+        int *playlist_fd_ptr = (int *) *con_cls;
+        if (playlist_fd_ptr == NULL) {
+            char *file_name = find_playlist_filename(self->library_root, playlist_tag);
+            P_CHECK(file_name, return MHD_NO);
+
+            playlist_fd_ptr = malloc(sizeof(int));
+            *playlist_fd_ptr = open(file_name, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+            if (*playlist_fd_ptr < 0) {
+                free(playlist_fd_ptr);
+                free(file_name);
+                return MHD_NO;
+            }
+            *con_cls = playlist_fd_ptr;
+            free(file_name);
+            return MHD_YES;
+        }
+
+        if (*upload_data_size > 0) {
+            size_t written = (size_t)write(*playlist_fd_ptr, upload_data, *upload_data_size);
+            if (written != *upload_data_size) return MHD_NO;
+            *upload_data_size = 0;
+            return MHD_YES;
+        } else {
+            close(*playlist_fd_ptr);
+            free(playlist_fd_ptr);
+            *con_cls = NULL;
+            struct MHD_Response *response = MHD_create_response_from_buffer(0, "", MHD_RESPMEM_PERSISTENT);
+            enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+            MHD_destroy_response(response);
+            return ret;
+        }
+    }
+
     char *file_name = find_playlist_filename(self->library_root, playlist_tag);
+    P_CHECK(file_name, return MHD_NO);
 
     syslog(LOG_DEBUG, "Playlist requested for %s: %s", playlist_id, file_name);
 
     int playlist_fd = open(file_name, O_RDONLY);
-    I_CHECK(playlist_fd, return MHD_NO);
+    I_CHECK(playlist_fd, { free(file_name); return MHD_NO; });
 
     struct stat playlist_stat;
-    I_CHECK(fstat(playlist_fd, &playlist_stat), return MHD_NO);
+    I_CHECK(fstat(playlist_fd, &playlist_stat), { free(file_name); return MHD_NO; });
 
     struct MHD_Response *response = MHD_create_response_from_fd(playlist_stat.st_size, playlist_fd);
 
-    P_CHECK(response, return MHD_NO);
+    P_CHECK(response, { free(file_name); return MHD_NO; });
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, MIME_TEXT_PLAIN);
     enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);

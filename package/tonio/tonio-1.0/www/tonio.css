@@ -122,6 +122,11 @@ li a:hover:not(.active) {
     color: #ff5555;
 }
 
+.track-save {
+    font-size: x-large;
+    color: #50fa7b;
+}
+
 .track-drag, .pl-title {
     font-size: large;
 }

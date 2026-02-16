@@ -21,24 +21,51 @@ function libraryStageCreate() {
     const plContainer = document.getElementById('playlist-container');
     const itemContainer = document.getElementById('item-container');
     const delButtonTpl = document.getElementById('remove-button');
+    const saveButtonTpl = document.getElementById('save-button');
     const dragHandleTpl = document.getElementById('drag-handle');
     const resourceNameTpl = document.getElementById('item-resource');
 
-    function playlistTitle(title, tracksList, resources) {
+    const originalResources = {};
+
+    function playlistTitle(tagId, title, tracksList, resources, redraw) {
         let titleElem = plTitle.content.firstChild.cloneNode(true);
+        let titleText = document.createElement('span');
+        titleElem.innerHTML = '';
+        titleElem.appendChild(titleText);
+
         if (resources === null) {
-            titleElem.innerHTML = `⚠️️ ${title}`;
+            titleText.innerHTML = `⚠️️ ${title}`;
         } else {
-            titleElem.innerHTML = `▸ ${title}`;
-            titleElem.onclick = () => {
+            titleText.innerHTML = `▸ ${title}`;
+            titleText.onclick = () => {
                 if (tracksList.style.display === 'none') {
-                    titleElem.innerHTML = `▾ ${title}`;
+                    titleText.innerHTML = `▾ ${title}`;
                     tracksList.style.display = 'block';
                 } else {
-                    titleElem.innerHTML = `▸ ${title}`;
+                    titleText.innerHTML = `▸ ${title}`;
                     tracksList.style.display = 'none';
                 }
             };
+
+            const original = originalResources[tagId];
+            const changed = original && (original.length !== resources.length || resources.some((v, i) => v !== original[i]));
+
+            if (changed) {
+                let saveButton = saveButtonTpl.content.firstChild.cloneNode(true);
+                saveButton.onclick = async () => {
+                    let body = resources.join('\n') + '\n';
+                    let req = await fetch('/library/' + tagId, {
+                        method: 'POST',
+                        body: body
+                    });
+                    if (req.status === 200) {
+                        originalResources[tagId] = [...resources];
+                        saveButton.remove();
+                    }
+                };
+                saveButton.style.float = 'right';
+                titleElem.appendChild(saveButton);
+            }
         }
         return titleElem;
     }
@@ -119,7 +146,14 @@ function libraryStageCreate() {
 
     function drawPlaylist(tagId, rootElem, resources, collapsed, previousTitleElem, previousTracksElem) {
         let tracksElem = playlistList(collapsed);
-        let titleElem = playlistTitle(tagId, tracksElem, resources);
+        let titleElem;
+
+        const redraw = () => {
+            drawPlaylist(tagId, rootElem, resources, false, titleElem, tracksElem);
+        };
+
+        titleElem = playlistTitle(tagId, tagId, tracksElem, resources, redraw);
+
         if (previousTitleElem)
             rootElem.replaceChild(titleElem, previousTitleElem);
         else
@@ -129,8 +163,6 @@ function libraryStageCreate() {
             rootElem.replaceChild(tracksElem, previousTracksElem);
         else
             rootElem.appendChild(tracksElem);
-
-        let redraw = drawPlaylist.bind(null, tagId, rootElem, resources, false, titleElem, tracksElem);
 
         if (resources !== null) {
             for (let i = 0; i < resources.length; i++) {
@@ -152,6 +184,7 @@ function libraryStageCreate() {
                 if (req.status === 200) {
                     let playlist = await req.text();
                     resources = playlist.match(/[^\n]+/g).filter(res => !res.startsWith('#'));
+                    originalResources[tagId] = [...resources];
                 }
                 drawPlaylist(tagId, rootElem, resources, true);
             });
