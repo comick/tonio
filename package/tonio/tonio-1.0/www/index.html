@@ -40,13 +40,11 @@
 
         <div id="library-stage" class="stage">
             <template id="playlist-title"><h4>Playlist title</h4></template>
-            <template id="playlist-container"><table style="display: none"></table></template>
-            <template id="item-container"><tr></tr></template>
-            <template id="remove-button"><td class="button track-del">&#10006;</td></template>
-            <template id="up-button"><td class="button track-up">&#x2bc5;</td></template>
-            <template id="down-button"><td class="button track-down">&#x2bc6;</td></template>
-            <template id="no-button"><td></td></template>
-            <template id="item-resource"><td></td></template>
+            <template id="playlist-container"><ul class="playlist" style="display: none"></ul></template>
+            <template id="item-container"><li class="playlist-item"></li></template>
+            <template id="remove-button"><span class="button track-del">&#10006;</span></template>
+            <template id="drag-handle"><span class="button track-drag">&#x2630;</span></template>
+            <template id="item-resource"><span class="track-resource"></span></template>
 
         </div>
 

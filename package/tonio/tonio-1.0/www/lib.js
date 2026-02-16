@@ -21,49 +21,91 @@ function libraryStageCreate() {
     const plContainer = document.getElementById('playlist-container');
     const itemContainer = document.getElementById('item-container');
     const delButtonTpl = document.getElementById('remove-button');
-    const upButtonTpl = document.getElementById('up-button');
-    const downButtonTpl = document.getElementById('down-button');
-    const noButtonTpl = document.getElementById('no-button');
+    const dragHandleTpl = document.getElementById('drag-handle');
     const resourceNameTpl = document.getElementById('item-resource');
 
-    function playlistTitle(title, tracksTable, resources) {
+    function playlistTitle(title, tracksList, resources) {
         let titleElem = plTitle.content.firstChild.cloneNode(true);
         if (resources === null) {
             titleElem.innerHTML = `⚠️️ ${title}`;
         } else {
-            titleElem.innerHTML = `➕ ${title}`;
+            titleElem.innerHTML = `▸ ${title}`;
             titleElem.onclick = () => {
-                if (tracksTable.style.display === 'none') {
-                    titleElem.innerHTML = `➖ ${title}`;
-                    tracksTable.style.display = 'table';
+                if (tracksList.style.display === 'none') {
+                    titleElem.innerHTML = `▾ ${title}`;
+                    tracksList.style.display = 'block';
                 } else {
-                    titleElem.innerHTML = `➕ ${title}`;
-                    tracksTable.style.display = 'none';
+                    titleElem.innerHTML = `▸ ${title}`;
+                    tracksList.style.display = 'none';
                 }
             };
         }
         return titleElem;
     }
 
-    function playlistTable(collapsed) {
+    function playlistList(collapsed) {
         let containerElem = plContainer.content.firstChild.cloneNode(true);
         if (!collapsed)
-            containerElem.style.display = 'table';
+            containerElem.style.display = 'block';
         return containerElem;
     }
 
-    function playlistRow(pos, resources, redraw) {
-        let rowElem = itemContainer.content.firstChild.cloneNode(true);
+    function playlistItem(pos, resources, redraw) {
+        let itemElem = itemContainer.content.firstChild.cloneNode(true);
 
-        rowElem.appendChild(deleteButton(pos, resources, redraw));
-        rowElem.appendChild(upButton(pos, resources, redraw));
-        rowElem.appendChild(downButton(pos, resources, redraw));
+        itemElem.draggable = true;
+        itemElem.ondragstart = e => {
+            e.dataTransfer.setData('text/plain', pos);
+        };
+        itemElem.ondragover = e => {
+            e.preventDefault();
+            const rect = itemElem.getBoundingClientRect();
+            const relY = e.clientY - rect.top;
+            if (relY < rect.height / 2) {
+                itemElem.classList.add('drag-over-top');
+                itemElem.classList.remove('drag-over-bottom');
+            } else {
+                itemElem.classList.add('drag-over-bottom');
+                itemElem.classList.remove('drag-over-top');
+            }
+        };
+        itemElem.ondragenter = e => {
+            e.preventDefault();
+        };
+        itemElem.ondragleave = e => {
+            itemElem.classList.remove('drag-over-top');
+            itemElem.classList.remove('drag-over-bottom');
+        };
+        itemElem.ondrop = e => {
+            e.preventDefault();
+            const rect = itemElem.getBoundingClientRect();
+            const relY = e.clientY - rect.top;
+            const dropAtBottom = relY >= rect.height / 2;
+
+            itemElem.classList.remove('drag-over-top');
+            itemElem.classList.remove('drag-over-bottom');
+
+            let from = parseInt(e.dataTransfer.getData('text/plain'));
+            let to = pos;
+
+            if (dropAtBottom) to++;
+
+            if (from !== to) {
+                let item = resources.splice(from, 1)[0];
+                if (from < to) to--;
+                resources.splice(to, 0, item);
+                redraw();
+            }
+        };
+
+        itemElem.appendChild(deleteButton(pos, resources, redraw));
+        itemElem.appendChild(dragHandleTpl.content.firstChild.cloneNode(true));
 
         let resourceName = resourceNameTpl.content.firstChild.cloneNode(true);
         resourceName.innerHTML = resources[pos];
-        rowElem.appendChild(resourceName);
+        itemElem.appendChild(resourceName);
 
-        return rowElem;
+        return itemElem;
     }
 
     function deleteButton(pos, resources, redraw) {
@@ -75,38 +117,8 @@ function libraryStageCreate() {
         return delButton;
     }
 
-    function upButton(pos, resources, redraw) {
-        if (pos === 0)
-            return noButtonTpl.content.firstChild.cloneNode(true);
-        else {
-            let upButton = upButtonTpl.content.firstChild.cloneNode(true);
-            upButton.onclick = () => {
-                let tmp = resources[pos];
-                resources[pos] = resources[pos - 1];
-                resources[pos - 1 ] = tmp;
-                redraw();
-            };
-            return upButton;
-        }
-    }
-
-    function downButton(pos, resources, redraw) {
-        if (pos === resources.length - 1)
-            return noButtonTpl.content.firstChild.cloneNode(true);
-        else {
-            let downButton = downButtonTpl.content.firstChild.cloneNode(true);
-            downButton.onclick = () => {
-                let tmp = resources[pos];
-                resources[pos] = resources[pos + 1];
-                resources[pos + 1] = tmp;
-                redraw();
-            };
-            return downButton;
-        }
-    }
-
     function drawPlaylist(tagId, rootElem, resources, collapsed, previousTitleElem, previousTracksElem) {
-        let tracksElem = playlistTable(collapsed);
+        let tracksElem = playlistList(collapsed);
         let titleElem = playlistTitle(tagId, tracksElem, resources);
         if (previousTitleElem)
             rootElem.replaceChild(titleElem, previousTitleElem);
@@ -122,7 +134,7 @@ function libraryStageCreate() {
 
         if (resources !== null) {
             for (let i = 0; i < resources.length; i++) {
-                tracksElem.appendChild(playlistRow(i, resources, redraw));
+                tracksElem.appendChild(playlistItem(i, resources, redraw));
             }
         }
     }
