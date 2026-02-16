@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022, 2025 Michele Comignano <mcdev@playlinux.net>
+ * Copyright (c) 2022, 2026 Michele Comignano <mcdev@playlinux.net>
  * This file is part of Tonio.
  *
  * Tonio is free software: you can redistribute it and/or modify
@@ -49,6 +49,7 @@ typedef struct cj_token {
             const char *buf;
             size_t len;
         };
+
         double number;
     } value;
 } cj_token_t;
@@ -63,31 +64,32 @@ const cj_token_t cj_object_push = {CJ_OBJECT_PUSH, .value.len = 1, .value.buf = 
 const cj_token_t cj_object_pop = {CJ_OBJECT_POP, .value.len = 1, .value.buf = "}"};
 
 
-cj_token_t cj_string(size_t len, const char buf[len + 1]) {
+static inline cj_token_t cj_string(const size_t len, const char buf[len + 1]) {
     if (buf == NULL) {
         return cj_null;
     }
-    return (cj_token_t){ CJ_STRING, .value.buf = buf, .value.len = len};
+    return (cj_token_t){CJ_STRING, .value.buf = buf, .value.len = len};
 }
 
-cj_token_t cj_number(double n) {
-    return (cj_token_t){ CJ_NUMBER, .value.number = n};
+static inline cj_token_t cj_number(const double n) {
+    return (cj_token_t){CJ_NUMBER, .value.number = n};
 }
 
-cj_token_t cj_key(size_t len, const char buf[len + 1]) {
+static inline cj_token_t cj_key(const size_t len, const char buf[len + 1]) {
     if (buf == NULL) {
         return cj_null;
     }
-    return (cj_token_t){ CJ_KEY, .value.buf = buf, .value.len = len};
+    return (cj_token_t){CJ_KEY, .value.buf = buf, .value.len = len};
 }
 
 
 /** Token streams and interfaces. */
 
 // Callback for next element in token stream.
-typedef cj_token_t(*cj_token_stream_next_t) (void *cls);
+typedef cj_token_t (*cj_token_stream_next_t)(void *cls);
+
 // Callback to free additional resources when tkoen stream is consumed.
-typedef void (*cj_token_stream_free_t) (void *cls);
+typedef void (*cj_token_stream_free_t)(void *cls);
 
 typedef struct cj_token_stream {
     void *cls; // context for next
@@ -99,8 +101,8 @@ typedef struct cj_token_stream {
 
 
 // Creates a new token stream.
-cj_token_stream_t *cj_token_stream_new(void * cls, cj_token_stream_next_t next, cj_token_stream_free_t free) {
-    cj_token_stream_t *it = malloc(sizeof (cj_token_stream_t));
+static inline cj_token_stream_t *cj_token_stream_new(void *cls, cj_token_stream_next_t next, cj_token_stream_free_t free) {
+    cj_token_stream_t *it = malloc(sizeof(cj_token_stream_t));
     it->cls = cls;
     it->last_token_type = CJ_NONE;
     it->expected_tokens = _CJ_VALUE_POP;
@@ -114,7 +116,7 @@ cj_token_stream_t *cj_token_stream_new(void * cls, cj_token_stream_next_t next, 
  * 
  * @param cls pointer to additional stream resources.
  */
-void cj_token_stream_free(void *cls) {
+static inline void cj_token_stream_free(void *cls) {
     cj_token_stream_t *it = (cj_token_stream_t *) cls;
     if (it->free != NULL) {
         it->free(it->cls);
@@ -132,13 +134,12 @@ void cj_token_stream_free(void *cls) {
  * Step function writing json to out buffer.
  * 
  * @param ts token stream.
- * @param pos
  * @param max max number of bytes the buffer can accomodate.
  * @param buf target buffer.
  * @return 
  */
- ssize_t cj_token_stream_writer(cj_token_stream_t *ts, size_t max, char buf[max]) {
-    cj_token_t tk = ts->next(ts->cls);
+static inline ssize_t cj_token_stream_writer(cj_token_stream_t *ts, const size_t max, char buf[max]) {
+    const cj_token_t tk = ts->next(ts->cls);
 
     if (tk.type == CJ_NONE) {
         return CJ_END_OF_STREAM;
@@ -179,7 +180,6 @@ void cj_token_stream_free(void *cls) {
             buf[offset] = '"';
             offset += 1;
 
-            
             memcpy(buf + offset, tk.value.buf, tk.value.len);
             offset += tk.value.len;
 
@@ -197,14 +197,22 @@ void cj_token_stream_free(void *cls) {
     }
 }
 
-/** Utility things for simple static JSON structures. */
+/**
+ * List of tokens whose number is known statically.
+ */
 typedef struct cj_static_tokens_it {
     int current;
     int count;
     cj_token_t *tks;
 } cj_static_tokens_it_t;
 
-cj_static_tokens_it_t *cj_static_tokens_it_new(size_t count, cj_token_t tks[count]) {
+/**
+ * Allocates a list of tokens whose number is known statically.
+ * @param count number of tokens.
+ * @param tks tokens.
+ * @return list of tokens. Caller should free it.
+ */
+static inline cj_static_tokens_it_t *cj_static_tokens_it_new(const size_t count, cj_token_t tks[count]) {
     cj_static_tokens_it_t *it = malloc(sizeof(cj_static_tokens_it_t));
     it->count = count;
     it->current = 0;
@@ -212,14 +220,14 @@ cj_static_tokens_it_t *cj_static_tokens_it_new(size_t count, cj_token_t tks[coun
     return it;
 }
 
-void cj_static_tokens_it_free(void *cls) {
+static inline void cj_static_tokens_it_free(void *cls) {
     cj_static_tokens_it_t *cd = (cj_static_tokens_it_t *) cls;
     if (cd != NULL) {
         free(cd);
     }
 }
 
-cj_static_tokens_it_t cj_static_tokens_it_of(size_t count, cj_token_t tks[count]) {
+static inline cj_static_tokens_it_t cj_static_tokens_it_of(const size_t count, cj_token_t tks[count]) {
     cj_static_tokens_it_t it;
     it.count = count;
     it.current = 0;
@@ -227,8 +235,7 @@ cj_static_tokens_it_t cj_static_tokens_it_of(size_t count, cj_token_t tks[count]
     return it;
 }
 
-cj_token_t cj_static_token_next(void *cls) {
-    
+static inline cj_token_t cj_static_token_next(void *cls) {
     cj_static_tokens_it_t *cd = (cj_static_tokens_it_t *) cls;
 
     if (cd->current == cd->count) {
