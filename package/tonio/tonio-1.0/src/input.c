@@ -34,17 +34,46 @@ const uint8_t default_key[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 struct tn_input {
     struct gpiod_chip *gpio_chip;
-    struct gpiod_line *gpio_mfrc522_line, *vol_up_line, *vol_down_line, *track_next_line, *track_prev_line;
+    struct gpiod_line_request *gpio_mfrc522_request;
+    struct gpiod_line_request *btn_request;
+    unsigned int track_next_off, track_prev_off, vol_up_off, vol_down_off;
 };
 
 tn_input_t *tn_input_init(cfg_t *cfg) {
     MFRC522_Status_t ret;
     tn_input_t *self = calloc(1, sizeof (tn_input_t));
+    struct gpiod_line_settings *settings;
+    struct gpiod_line_config *line_cfg;
+    unsigned int mfrc522_off;
 
-    P_CHECK(self->gpio_chip = gpiod_chip_open_by_name(cfg_getstr(cfg, CFG_GPIOD_CHIP_NAME)), return NULL);
-    P_CHECK(self->gpio_mfrc522_line = gpiod_chip_get_line(self->gpio_chip, cfg_getint(cfg, CFG_MFRC522_SWITCH)), return NULL);
+    P_CHECK(self->gpio_chip = gpiod_chip_open(cfg_getstr(cfg, CFG_GPIOD_CHIP_NAME)), return NULL);
 
-    ret = MFRC522_Init(self->gpio_mfrc522_line, cfg_getstr(cfg, CFG_MFRC522_SPI_DEV), 'B');
+    mfrc522_off = cfg_getint(cfg, CFG_MFRC522_SWITCH);
+    self->track_next_off = cfg_getint(cfg, CFG_BTN_TRACK_NEXT);
+    self->track_prev_off = cfg_getint(cfg, CFG_BTN_TRACK_PREVIOUS);
+    self->vol_up_off = cfg_getint(cfg, CFG_BTN_VOLUME_UP);
+    self->vol_down_off = cfg_getint(cfg, CFG_BTN_VOLUME_DOWN);
+
+    settings = gpiod_line_settings_new();
+    P_CHECK(settings, return NULL);
+    gpiod_line_settings_set_direction(settings, GPIOD_LINE_DIRECTION_OUTPUT);
+    gpiod_line_settings_set_output_value(settings, GPIOD_LINE_VALUE_ACTIVE);
+
+    line_cfg = gpiod_line_config_new();
+    P_CHECK(line_cfg, { gpiod_line_settings_free(settings); return NULL; });
+    I_CHECK(gpiod_line_config_add_line_settings(line_cfg, &mfrc522_off, 1, settings), {
+        gpiod_line_settings_free(settings);
+        gpiod_line_config_free(line_cfg);
+        return NULL;
+    });
+
+    P_CHECK(self->gpio_mfrc522_request = gpiod_chip_request_lines(self->gpio_chip, NULL, line_cfg), {
+        gpiod_line_settings_free(settings);
+        gpiod_line_config_free(line_cfg);
+        return NULL;
+    });
+
+    ret = MFRC522_Init(self->gpio_mfrc522_request, cfg_getstr(cfg, CFG_MFRC522_SPI_DEV), 'B');
 
     if (ret < 0) {
         syslog(LOG_CRIT, "RFID Failed to initialize");
@@ -52,15 +81,25 @@ tn_input_t *tn_input_init(cfg_t *cfg) {
     }
     syslog(LOG_INFO, "RFID reader successfully initialized");
 
-    P_CHECK(self->track_next_line = gpiod_chip_get_line(self->gpio_chip, cfg_getint(cfg, CFG_BTN_TRACK_NEXT)), return NULL);
-    P_CHECK(self->track_prev_line = gpiod_chip_get_line(self->gpio_chip, cfg_getint(cfg, CFG_BTN_TRACK_PREVIOUS)), return NULL);
-    P_CHECK(self->vol_up_line = gpiod_chip_get_line(self->gpio_chip, cfg_getint(cfg, CFG_BTN_VOLUME_UP)), return NULL);
-    P_CHECK(self->vol_down_line = gpiod_chip_get_line(self->gpio_chip, cfg_getint(cfg, CFG_BTN_VOLUME_DOWN)), return NULL);
+    gpiod_line_settings_reset(settings);
+    gpiod_line_settings_set_direction(settings, GPIOD_LINE_DIRECTION_INPUT);
 
-    I_CHECK(gpiod_line_request_input(self->track_next_line, "tonio"), return NULL);
-    I_CHECK(gpiod_line_request_input(self->track_prev_line, "tonio"), return NULL);
-    I_CHECK(gpiod_line_request_input(self->vol_up_line, "tonio"), return NULL);
-    I_CHECK(gpiod_line_request_input(self->vol_down_line, "tonio"), return NULL);
+    gpiod_line_config_reset(line_cfg);
+    unsigned int btn_offsets[] = {self->track_next_off, self->track_prev_off, self->vol_up_off, self->vol_down_off};
+    I_CHECK(gpiod_line_config_add_line_settings(line_cfg, btn_offsets, 4, settings), {
+        gpiod_line_settings_free(settings);
+        gpiod_line_config_free(line_cfg);
+        return NULL;
+    });
+
+    P_CHECK(self->btn_request = gpiod_chip_request_lines(self->gpio_chip, NULL, line_cfg), {
+        gpiod_line_settings_free(settings);
+        gpiod_line_config_free(line_cfg);
+        return NULL;
+    });
+
+    gpiod_line_settings_free(settings);
+    gpiod_line_config_free(line_cfg);
 
     return self;
 }
@@ -89,25 +128,25 @@ bool tn_input_tag_select(tn_input_t *self, uint8_t *card_id) {
 int tn_input_btn_next(tn_input_t *self) {
     if (self == NULL) return 0;
 
-    return gpiod_line_get_value(self->track_next_line);
+    return gpiod_line_request_get_value(self->btn_request, self->track_next_off);
 }
 
 int tn_input_btn_prev(tn_input_t *self) {
     if (self == NULL) return 0;
 
-    return gpiod_line_get_value(self->track_prev_line);
+    return gpiod_line_request_get_value(self->btn_request, self->track_prev_off);
 }
 
 int tn_input_btn_vol_up(tn_input_t *self) {
     if (self == NULL) return 0;
 
-    return gpiod_line_get_value(self->vol_up_line);
+    return gpiod_line_request_get_value(self->btn_request, self->vol_up_off);
 }
 
 int tn_input_btn_vol_down(tn_input_t *self) {
     if (self == NULL) return 0;
 
-    return gpiod_line_get_value(self->vol_down_line);
+    return gpiod_line_request_get_value(self->btn_request, self->vol_down_off);
 }
 
 void tn_input_destroy(tn_input_t *self) {
@@ -116,5 +155,7 @@ void tn_input_destroy(tn_input_t *self) {
     syslog(LOG_INFO, "Shutting down input subsystem.");
 
     MFRC522_Halt();
+    gpiod_line_request_release(self->gpio_mfrc522_request);
+    gpiod_line_request_release(self->btn_request);
     gpiod_chip_close(self->gpio_chip);
 }

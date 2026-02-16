@@ -370,7 +370,7 @@ static cj_token_t _iwlist_json_next(void *cls) {
     } else {
         wireless_scan *res = sts->scan_result;
         sts->scan_result = sts->scan_result->next;
-        return cj_string(res->b.essid_len, res->b.essid);
+        return cj_string(strlen(res->b.essid), res->b.essid);
     }
 }
 

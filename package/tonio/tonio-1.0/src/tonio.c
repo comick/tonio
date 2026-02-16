@@ -23,7 +23,6 @@
 #include <sys/types.h>
 #include <string.h>
 #include <dirent.h>
-#include <gpiod.h>
 #include <stdbool.h>
 #include <confuse.h>
 #include <signal.h>
@@ -69,7 +68,7 @@ static tn_media_t *media = NULL;
 static tn_input_t *input = NULL;
 static tn_http_t *http = NULL;
 
-void _request_reload() {
+void _request_reload(int signal) {
     syslog(LOG_ALERT, "Reload requested.");
     // TODO use mutex or semaphore or whatever synchronized.
     _reload_requested = true;

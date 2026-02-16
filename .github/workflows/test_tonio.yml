@@ -8,11 +8,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: ubuntu:plucky
     steps:
       - name: Install dependencies
         run: |
-          sudo apt-get -y update
-          sudo apt-get -y install libvlc-dev libasound2-dev libconfuse-dev libgpiod-dev libmicrohttpd-dev libiw-dev check build-essential
+          apt-get -y update
+          apt-get -y install git libvlc-dev libasound2-dev libconfuse-dev libgpiod-dev libmicrohttpd-dev libiw-dev check build-essential autoconf automake libtool pkg-config tree
       - uses: actions/checkout@v4
       - name: Configure
         run: |
