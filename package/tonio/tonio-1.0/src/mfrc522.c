@@ -30,9 +30,11 @@ void MFRC522_HAL_Delay(unsigned int ms);
 /* HAL prototypes end */
 static int Checking_Card = 0;
 
-int MFRC522_Setup(struct gpiod_line *gpio_line, char Type) {
+int MFRC522_Setup(struct gpiod_line_request *gpio_request, char Type) {
 
-    I_CHECK(gpiod_line_request_output(gpio_line, "mfrc522", 1), return -1);
+    // I_CHECK(gpiod_line_request_output(gpio_line, "mfrc522", 1), return -1);
+    // Line is already requested in input.c tn_input_init
+    (void)gpio_request;
 
     MFRC522_Reset();
     MFRC522_HAL_Delay(200);
@@ -70,11 +72,11 @@ int MFRC522_Setup(struct gpiod_line *gpio_line, char Type) {
     return 0;
 }
 
-int MFRC522_Init(struct gpiod_line *gpio_line, char *spi_dev, char Type) {
+int MFRC522_Init(struct gpiod_line_request *gpio_request, char *spi_dev, char Type) {
 
     MFRC522_HAL_init(spi_dev);
 
-    return MFRC522_Setup(gpio_line, Type);
+    return MFRC522_Setup(gpio_request, Type);
 }
 
 MFRC522_Status_t MFRC522_Check(uint8_t* id) {

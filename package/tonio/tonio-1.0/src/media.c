@@ -174,6 +174,10 @@ static void _post_is_playing(const struct libvlc_event_t *event, void *user_data
 static char *_error_track_name = "error";
 
 char *tn_media_track_name(tn_media_t *self) {
+    if (self->media_list == NULL) {
+        return NULL;
+    }
+
     int current = tn_media_track_current(self);
     libvlc_media_t *current_media = libvlc_media_list_item_at_index(self->media_list, current);
     P_CHECK(current_media, return _error_track_name);
