@@ -7,16 +7,15 @@
 TONIO_VERSION = 1.0
 TONIO_SITE = $(BR2_EXTERNAL_TONIO_PATH)/package/tonio/tonio-$(TONIO_VERSION)
 TONIO_SITE_METHOD = local
-TONIO_AUTORECONF = YES
 
 TONIO_DEPENDENCIES = host-pkgconf alsa-lib libgpiod2 libmicrohttpd libconfuse wireless_tools
 
 ifeq ($(BR2_PACKAGE_TONIO_MEDIA_OPUS),y)
 	TONIO_DEPENDENCIES += opusfile
-	TONIO_CONF_OPTS += --enable-media=opus
+	TONIO_CONF_OPTS += -DMEDIA_BACKEND=opus
 else ifeq ($(BR2_PACKAGE_TONIO_MEDIA_VLC),y)
 	TONIO_DEPENDENCIES += vlc
-	TONIO_CONF_OPTS += --enable-media=vlc
+	TONIO_CONF_OPTS += -DMEDIA_BACKEND=vlc
 endif
 
 define TONIO_INSTALL_INIT_SYSV
@@ -24,7 +23,7 @@ define TONIO_INSTALL_INIT_SYSV
         $(TARGET_DIR)/etc/init.d/S15tonio
 endef
 
-$(eval $(autotools-package))
+$(eval $(cmake-package))
 
 tonio-deploy: tonio-rebuild
 	ssh root@$(target) '/etc/init.d/S15tonio stop'

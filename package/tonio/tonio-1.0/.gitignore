@@ -1,5 +1,17 @@
+# Build directories
+build/
+_build/
+cmake-build*/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+config.h
+
+# Autotools leftovers (keep for reference but ignore generated files)
 **/Makefile.in
-**/Makefile
 .deps
 compile
 configure
@@ -10,9 +22,14 @@ depcomp
 aclocal.m4
 autom4te.cache
 stamp-h1
-config.*
 
+# Object files
 *.o
+*.obj
 *.log
 *.trs
 *.tar.gz
+
+# IDE
+.idea/
+.settings/

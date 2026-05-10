@@ -713,7 +713,8 @@ static void *_playback_thread(void *arg) {
                     _save_stream_positions(self, track_idx,
                                            _pcm_offset_to_pos(of, cur));
                     op_free(of);
-                    break; /* re-evaluate at top of outer loop */
+                    of = NULL;
+                    break;
                 }
 
                 /* Convert mono to stereo if needed. */
@@ -748,10 +749,13 @@ static void *_playback_thread(void *arg) {
                 if (elapsed_ms > 2000) track_timed = true;
             }
 
-            /* End of track  save position, advance, loop. */
-            _save_stream_positions(self, track_idx, 0.0f);
-            op_free(of);
-            track_idx = (track_idx + 1) % track_count;
+            /* End of track: save position, advance, loop. */
+            if (of != NULL) {
+                _save_stream_positions(self, track_idx, 0.0f);
+                op_free(of);
+                of = NULL;
+                track_idx = (track_idx + 1) % track_count;
+            }
             first_track = false;
             track_timed = false;
         }
