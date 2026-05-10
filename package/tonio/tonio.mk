@@ -8,7 +8,16 @@ TONIO_VERSION = 1.0
 TONIO_SITE = $(BR2_EXTERNAL_TONIO_PATH)/package/tonio/tonio-$(TONIO_VERSION)
 TONIO_SITE_METHOD = local
 TONIO_AUTORECONF = YES
-TONIO_DEPENDENCIES = host-pkgconf vlc alsa-lib libgpiod2 libmicrohttpd libconfuse
+
+TONIO_DEPENDENCIES = host-pkgconf alsa-lib libgpiod2 libmicrohttpd libconfuse wireless_tools
+
+ifeq ($(BR2_PACKAGE_TONIO_MEDIA_OPUS),y)
+	TONIO_DEPENDENCIES += opusfile
+	TONIO_CONF_OPTS += --enable-media=opus
+else ifeq ($(BR2_PACKAGE_TONIO_MEDIA_VLC),y)
+	TONIO_DEPENDENCIES += vlc
+	TONIO_CONF_OPTS += --enable-media=vlc
+endif
 
 define TONIO_INSTALL_INIT_SYSV
     $(INSTALL) -D -m 0755 $(BR2_EXTERNAL_TONIO_PATH)/package/tonio/S15tonio \

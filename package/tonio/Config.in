@@ -4,8 +4,31 @@ menuconfig BR2_PACKAGE_TONIO
     select BR2_PACKAGE_LIBGPIOD2_TOOLS
     select BR2_PACKAGE_ALSA_LIB
     select BR2_PACKAGE_LIBMICROHTTPD
-    select BR2_PACKAGE_VLC
     select BR2_PACKAGE_HOST_PKGCONF
     select BR2_PACKAGE_LIBCONFUSE
     help
         Tonio is the free juke-box software for children and beyond!
+
+if BR2_PACKAGE_TONIO
+    choice
+        prompt "Media backend"
+        default BR2_PACKAGE_TONIO_MEDIA_OPUS
+        help
+            Select the media playback backend for Tonio.
+
+        config BR2_PACKAGE_TONIO_MEDIA_OPUS
+            bool "opusfile (lightweight, no VLC)"
+            select BR2_PACKAGE_OPUSFILE
+            help
+                Use the opusfile library + ALSA PCM for Opus audio playback.
+                This is a lightweight backend that does not require VLC.
+
+        config BR2_PACKAGE_TONIO_MEDIA_VLC
+            bool "VLC (full libvlc)"
+            select BR2_PACKAGE_VLC
+            help
+                Use the full VLC media backend via libvlc.
+                Requires VLC and all its dependencies.
+
+    endchoice
+endif

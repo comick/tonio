@@ -9,34 +9,38 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container: ubuntu:plucky
+    strategy:
+      matrix:
+        media: [vlc, opus]
     steps:
       - name: Install dependencies
         run: |
           apt-get -y update
-          apt-get -y install git libvlc-dev libasound2-dev libconfuse-dev libgpiod-dev libmicrohttpd-dev libiw-dev check build-essential autoconf automake libtool pkg-config tree
+          apt-get -y install git libvlc-dev libopusfile-dev libasound2-dev libconfuse-dev libgpiod-dev libmicrohttpd-dev libiw-dev check build-essential autoconf automake libtool pkg-config tree
       - uses: actions/checkout@v4
-      - name: Configure
+      - name: Configure (${{ matrix.media }})
         run: |
           cd package/tonio/tonio-1.0
           autoreconf -vis
-          ./configure --prefix=
-      - name: Build
+          ./configure --prefix= --enable-media=${{ matrix.media }}
+      - name: Build (${{ matrix.media }})
         run: |
           cd package/tonio/tonio-1.0
           make
-      - name: Install to ~/tmp and Inspect
+      - name: Install to ~/tmp and Inspect (${{ matrix.media }})
         run: |
           cd package/tonio/tonio-1.0
           DESTDIR=~/tmp make install-strip
           tree ~/tmp
-      - name: Run Unit Tests
+      - name: Run Unit Tests (${{ matrix.media }})
         run: |
           cd package/tonio/tonio-1.0
           make check || (cat tests/test-suite.log; true)
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         with:
-          name: tonio-test
+          name: tonio-test-${{ matrix.media }}
           path: package/tonio/tonio-1.0/tests/*
+
 
         

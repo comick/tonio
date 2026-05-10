@@ -22,6 +22,27 @@
 #include <stdbool.h>
 #include <confuse.h>
 
+#include "uthash.h"
+
+#define DUMMY_AUDIO_OUT "dummy"
+
+#define PLAYLIST_SUFFIX ".m3u"
+#define PLAYLIST_SUFFIX_LEN (strlen(PLAYLIST_SUFFIX))
+
+#define POS_SAVE_FILE_TEMPLATE ".tonio.dat.XXXXXX"
+#define POS_SAVE_FILE ".tonio.dat"
+
+
+/* Per-card saved position (hash table entry). */
+typedef struct {
+    uint32_t card_id;
+    int media_idx;
+    float media_pos;
+    struct timeval time_saved;
+    UT_hash_handle hh;
+} tn_media_position_t;
+
+
 typedef struct tn_media tn_media_t;
 
 tn_media_t *tn_media_init(cfg_t *cfg);

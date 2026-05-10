@@ -16,47 +16,32 @@
  * along with Tonio.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "config.h"
+
+#define _GNU_SOURCE
+
 #include <stdlib.h>
-#include <vlc/vlc.h>
-#include <alsa/asoundlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
 #include <math.h>
 #include <semaphore.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <pwd.h>
 #include <dirent.h>
-#include <errno.h>
-#include <stdio.h>
-#include <sys/time.h>
-#include <ctype.h>
-#include <string.h>
-#include <sys/syslog.h>
+#include <pwd.h>
 #include <inttypes.h>
-
-#include "uthash.h"
+#include <sys/syslog.h>
+#include <sys/time.h>
+#include <alsa/asoundlib.h>
+#include <vlc/vlc.h>
 
 #include "volume_mapping.h"
 #include "media.h"
 #include "http.h"
 #include "tonio.h"
 
-#define DUMMY_AUDIO_OUT "dummy"
 
-#define PLAYLIST_SUFFIX ".m3u"
-#define PLAYLIST_SUFFIX_LEN (strlen(PLAYLIST_SUFFIX))
-
-#define POS_SAVE_FILE_TEMPLATE ".tonio.dat.XXXXXX"
-#define POS_SAVE_FILE ".tonio.dat"
-
-typedef struct {
-    uint32_t card_id;
-    int media_idx;
-    float media_pos;
-    struct timeval time_saved;
-    UT_hash_handle hh;
-} tn_media_position_t;
-
-struct tn_media {
+typedef struct tn_media {
     uint32_t curr_card_id;
     libvlc_instance_t * vlc;
     libvlc_media_list_player_t *media_list_player;
@@ -70,7 +55,7 @@ struct tn_media {
     char *audio_out;
     float volume_max;
     sem_t pos_file_mutex;
-};
+} tn_media_t;
 
 static void _save_event_detach(tn_media_t *);
 static tn_media_position_t *_save_stream_positions(tn_media_t *);
