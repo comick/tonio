@@ -1,2 +1,7 @@
+# Load sound module which doesn't necessarily load automatically.
+modprobe snd-bcm2835
+
+# Unmute and set volume for the analog audio output
 amixer cset numid=1 1
+
 TONIO_CONFIG=/etc/tonio.conf

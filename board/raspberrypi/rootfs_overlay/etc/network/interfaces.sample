@@ -1,13 +1,8 @@
-auto lo
-auto ap0
-auto wlan0
-iface lo inet loopback
+# wlan0 must start before ap0 so the AP channel can match.
+# ap0 is created by S41apsetup after wlan0 connects.
 
-allow-hotplug ap0
-iface ap0 inet static
-  address 172.16.0.1
-  netmask 255.255.255.0
-  hostapd /etc/hostapd.conf
+auto lo
+iface lo inet loopback
 
 allow-hotplug wlan0
 iface wlan0 inet dhcp
@@ -17,3 +12,7 @@ iface wlan0 inet dhcp
   pre-up wpa_supplicant -B -D nl80211 -i wlan0 -c /etc/wpa_supplicant.conf
   post-down killall -q wpa_supplicant
 
+allow-hotplug ap0
+iface ap0 inet static
+  address 172.16.0.1
+  netmask 255.255.255.0

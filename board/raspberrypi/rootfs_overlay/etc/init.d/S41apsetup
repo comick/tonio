@@ -1,0 +1,65 @@
+#!/bin/sh
+#
+# Setting up access point device
+# Must run AFTER wpa_supplicant is connected, so the AP
+# channel matches the wlan0 client channel.
+#
+
+WAIT_MAX=30   # max seconds to wait for wlan0 to connect
+
+get_channel() {
+    iw dev "$1" info 2>/dev/null | sed -n 's/.*channel \([0-9]*\).*/\1/p'
+}
+
+case "$1" in
+  start)
+        printf "Waiting for wlan0 to connect to Wi-Fi... "
+        waited=0
+        while [ "$waited" -lt "$WAIT_MAX" ]; do
+            CH=$(get_channel wlan0)
+            if [ -n "$CH" ] && [ "$CH" -ne 0 ] 2>/dev/null; then
+                printf "connected (channel %s)\n" "$CH"
+                break
+            fi
+            sleep 1
+            waited=$((waited + 1))
+        done
+
+        if [ -z "$CH" ] || [ "$CH" -eq 0 ] 2>/dev/null; then
+            echo "TIMEOUT - wlan0 not connected. Fallback to channel 6."
+            CH=6
+        fi
+
+        # Set regulatory domain (adjust "IT" to your country code)
+        /usr/sbin/iw reg set IT 2>/dev/null || true
+
+        printf "Creating ap0 interface on channel %s: " "$CH"
+        MAC=$(cat /sys/class/net/wlan0/address)
+
+        # Remove stale ap0 if it exists
+        ip link set ap0 down 2>/dev/null || true
+        iw dev ap0 del 2>/dev/null || true
+
+        # Create AP interface
+        if /usr/sbin/iw phy phy0 interface add ap0 type __ap && \
+           /sbin/ip link set ap0 address "$MAC"; then
+            echo "OK"
+
+            # Update hostapd.conf with the correct channel
+            sed -i "s/^channel=.*/channel=$CH/" /etc/hostapd.conf
+
+            # Configure IP and bring interface up.
+            # This is more reliable than relying on allow-hotplug in /etc/network/interfaces
+            # because mdev/udev event detection can be flaky.
+            /sbin/ip addr add 172.16.0.1/24 dev ap0 2>/dev/null || true
+            /sbin/ip link set ap0 up
+        else
+            echo "FAIL"
+        fi
+        ;;
+  *)
+        echo "Usage: $0 {start}"
+        exit 1
+esac
+
+exit $?

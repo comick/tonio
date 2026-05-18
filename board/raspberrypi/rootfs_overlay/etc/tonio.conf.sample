@@ -4,7 +4,7 @@ http-port = 80
 
 media-root ='/mnt/media/'
 
-gpiod-chip-name = 'gpiochip0'
+gpiod-chip-name = '/dev/gpiochip0'
 
 volume-max = 0.7
 mixer-card = 'default'

@@ -41,7 +41,7 @@ static cfg_opt_t config_opts[] = {
     CFG_STR(CFG_HTTP_ROOT, "/usr/share/tonio/www", CFGF_NONE),
     CFG_STR(CFG_MEDIA_ROOT, "/mnt/media", CFGF_NONE),
     CFG_STR(CFG_MEDIA_AUDIO_OUT, "alsa", CFGF_NONE),
-    CFG_STR(CFG_GPIOD_CHIP_NAME, "gpiochip0", CFGF_NONE),
+    CFG_STR(CFG_GPIOD_CHIP_NAME, "/dev/gpiochip0", CFGF_NONE),
     CFG_STR(CFG_MIXER_CARD, "default", CFGF_NONE),
     CFG_STR(CFG_MIXER_SELEM, "Headphone", CFGF_NONE),
     CFG_FLOAT(CFG_VOLUME_MAX, 0.7, CFGF_NONE),
@@ -343,6 +343,7 @@ int main(int argc, char* argv[argc + 1]) {
 
     if (!interactive) {
         input = tn_input_init(cfg);
+        P_CHECK(input, return EXIT_FAILURE);
     } else {
         syslog(LOG_INFO, "Running in interactive mode (no RFID hardware).");
         printf("Tonio interactive mode.\n");
