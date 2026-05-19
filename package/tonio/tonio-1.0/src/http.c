@@ -626,7 +626,7 @@ tn_http_t *tn_http_init(tn_media_t *media, uint8_t *selected_card_id, cfg_t *cfg
             cj_key(13, "track_current"), cj_null,
             cj_key(11, "track_total"), cj_null,
             cj_key(10, "track_name"), cj_null,
-            cj_key(9, "internet"), cj_false,
+            cj_key(8, "internet"), cj_false,
         cj_object_pop
     }, sizeof(self->status_tks));
 

@@ -12,7 +12,7 @@ if(NOT MEDIA_BACKEND STREQUAL "opus" AND NOT MEDIA_BACKEND STREQUAL "vlc")
                         "Supported backends: opus, vlc")
 endif()
 
-# ── Required packages via pkg-config ──────────────────────────────────────────
+# Required packages via pkg-config 
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(MHD         REQUIRED libmicrohttpd>=0.9.72)
@@ -31,7 +31,7 @@ if(NOT IW_LIBRARY)
     message(FATAL_ERROR "Cannot find libiw (wireless_tools)")
 endif()
 
-# ── Media-backend-specific dependencies ───────────────────────────────────────
+# Media-backend-specific dependencies 
 if(MEDIA_BACKEND STREQUAL "vlc")
     pkg_check_modules(VLC REQUIRED libvlc)
     set(MEDIA_SRC media_vlc.c)
@@ -45,10 +45,15 @@ endif()
 # Optional: check library for tests
 pkg_check_modules(CHECK check)
 
-# ── Generate config.h ─────────────────────────────────────────────────────────
+# Enable testing (required for add_test / ctest) 
+if(CHECK_FOUND)
+    enable_testing()
+endif()
+
+# Generate config.h 
 configure_file(config.h.in ${CMAKE_BINARY_DIR}/config.h)
 
-# ── Subdirectories ────────────────────────────────────────────────────────────
+# Subdirectories 
 add_subdirectory(src)
 add_subdirectory(www)
 
