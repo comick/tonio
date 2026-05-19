@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(tonio VERSION 1.0 LANGUAGES C)
 
+include(GNUInstallDirs)
+
 # Media backend option: opus (default) or vlc
 set(MEDIA_BACKEND "opus" CACHE STRING "Media backend: opus or vlc")
 
