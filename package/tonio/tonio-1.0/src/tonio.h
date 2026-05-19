@@ -39,6 +39,8 @@
 #define CFG_BTN_VOLUME_UP "btn-volume-up"
 #define CFG_MFRC522_SWITCH "mfrc522-switch"
 #define CFG_MFRC522_SPI_DEV "mfrc522-spi-dev"
+#define CFG_WLAN_IF "wlan-if"
+#define CFG_SYSLOG_PATH "syslog-path"
 
 #define I_CHECK(V, A) do { \
     if ((V) < 0) { \

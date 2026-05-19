@@ -35,12 +35,6 @@
 #include "media.h"
 #include "json.h"
 
-// TODO make configurable
-#define WLAN_IF "wlp9s0"
-//#define WLAN_IF "wlan0"
-//#define SYSLOG_PATH "/var/log/syslog"
-#define SYSLOG_PATH "/var/log/messages"
-
 #define MIME_APPLICATION_JSON "application/json"
 #define MIME_TEXT_PLAIN "text/plain"
 #define MIME_APPLICATION_JAVASCRIPT "application/javascript"
@@ -204,7 +198,7 @@ static enum MHD_Result _handle_settings(void *cls, struct MHD_Connection *connec
     int iw_sock = iw_sockets_open();
     I_CHECK(iw_sock, return MHD_NO);
     wireless_config wconfig;
-    I_CHECK(iw_get_basic_config(iw_sock, WLAN_IF, &wconfig), return MHD_NO);
+    I_CHECK(iw_get_basic_config(iw_sock, cfg_getstr(self->cfg, CFG_WLAN_IF), &wconfig), return MHD_NO);
     iw_sockets_close(iw_sock);
 
     const char *factory_new = cfg_getbool(self->cfg, CFG_FACTORY_NEW) == cfg_true
@@ -309,6 +303,8 @@ static enum MHD_Result _handle_log(void *cls, struct MHD_Connection *connection,
         const char *upload_data,
         size_t *upload_data_size, void **con_cls) {
 
+    tn_http_t *self = (tn_http_t *) cls;
+
     off_t log_offset = 0;
     struct MHD_Response *response;
     enum MHD_Result ret;
@@ -316,7 +312,7 @@ static enum MHD_Result _handle_log(void *cls, struct MHD_Connection *connection,
     syslog(LOG_DEBUG, "Log requested");
 
     // For this to really work, syslogd should have rotation disable.
-    int log_fd = open(SYSLOG_PATH, O_RDONLY); // TODO add one more log file path
+    int log_fd = open(cfg_getstr(self->cfg, CFG_SYSLOG_PATH), O_RDONLY);
     off_t sz = lseek(log_fd, 0, SEEK_END);
     I_CHECK(sz, return MHD_NO);
 
@@ -340,6 +336,7 @@ static enum MHD_Result _handle_log(void *cls, struct MHD_Connection *connection,
 
 typedef struct {
     int iwsocket;
+    const char *wlan_if;
     wireless_scan *scan_result;
     bool done;
 } _iwlist_json_status_t;
@@ -354,8 +351,8 @@ static cj_token_t _iwlist_json_next(void *cls) {
 
         sts->iwsocket = iw_sockets_open();
         I_CHECK(sts->iwsocket, goto iwlist_begin);
-        I_CHECK(iw_get_range_info(sts->iwsocket, WLAN_IF, &range), goto iwlist_begin);
-        I_CHECK(iw_scan(sts->iwsocket, WLAN_IF, range.we_version_compiled, &head), goto iwlist_begin);
+        I_CHECK(iw_get_range_info(sts->iwsocket, sts->wlan_if, &range), goto iwlist_begin);
+        I_CHECK(iw_scan(sts->iwsocket, sts->wlan_if, range.we_version_compiled, &head), goto iwlist_begin);
 
         sts->scan_result = head.result;
     iwlist_begin:
@@ -388,12 +385,15 @@ static int _handle_iwlist(void *cls, struct MHD_Connection *connection,
         const char *upload_data,
         size_t *upload_data_size, void **con_cls) {
 
+    tn_http_t *self = (tn_http_t *) cls;
+
     struct MHD_Response *response;
     int ret;
 
     syslog(LOG_DEBUG, "Wireless list requested");
 
     _iwlist_json_status_t *sts = calloc(1, sizeof (_iwlist_json_status_t));
+    sts->wlan_if = cfg_getstr(self->cfg, CFG_WLAN_IF);
 
     cj_token_stream_t *iwlist_it = cj_token_stream_new(sts, _iwlist_json_next, _iwlist_json_free);
 

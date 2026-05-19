@@ -17,3 +17,6 @@ btn-volume-up = 24
 
 mfrc522-switch = 25
 mfrc522-spi-dev = "/dev/spidev0.0"
+
+wlan-if = "wlan0"
+syslog-path = "/var/log/messages"

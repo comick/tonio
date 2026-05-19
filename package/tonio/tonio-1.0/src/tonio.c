@@ -51,6 +51,8 @@ static cfg_opt_t config_opts[] = {
     CFG_INT(CFG_BTN_VOLUME_UP, 24, CFGF_NONE),
     CFG_INT(CFG_MFRC522_SWITCH, 25, CFGF_NONE),
     CFG_STR(CFG_MFRC522_SPI_DEV, "/dev/spidev0.0", CFGF_NONE),
+    CFG_STR(CFG_WLAN_IF, "wlan0", CFGF_NONE),
+    CFG_STR(CFG_SYSLOG_PATH, "/var/log/messages", CFGF_NONE),
     CFG_END()
 };
 
