@@ -1,0 +1,26 @@
+From 321532001d59367466a6a4a60f5c6f0fe5fa2176 Mon Sep 17 00:00:00 2001
+From: Michele Comignano <mcdev@playlinux.net>
+Date: Sat, 13 Jun 2026 21:48:00 +0200
+Subject: [PATCH] celt/arm don't use vcvtaq_s32_f32 on 32 bit systems
+
+Upstream: N/A https://gitlab.xiph.org/xiph/opus/-/work_items/2397
+Signed-off-by: Michele Comignano <mcdev@playlinux.net>
+---
+ celt/arm/mathops_arm.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/celt/arm/mathops_arm.h b/celt/arm/mathops_arm.h
+index b1f9169..c612dae 100644
+--- a/celt/arm/mathops_arm.h
++++ b/celt/arm/mathops_arm.h
+@@ -37,7 +37,7 @@
+ 
+ static inline int32x4_t vroundf(float32x4_t x)
+ {
+-#  if defined(__aarch64__) || (defined(__ARM_ARCH) && __ARM_ARCH >= 8)
++#  if defined(__aarch64__)
+     return vcvtaq_s32_f32(x);
+ #  else
+     uint32x4_t sign = vandq_u32(vreinterpretq_u32_f32(x), vdupq_n_u32(0x80000000));
+-- 
+2.54.0

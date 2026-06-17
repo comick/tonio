@@ -16,3 +16,4 @@ libtool
 configure~
 .vscode
 .idea
+node_modules
