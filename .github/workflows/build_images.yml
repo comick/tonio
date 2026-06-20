@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [ master ]
 
-env:
-  buildroot-version: 2026.02.1
-
 jobs:
   build-supported-images:
 
@@ -17,6 +14,11 @@ jobs:
     strategy:
         matrix:
             config: [raspberrypi3]
+            version:
+              - label: LTS
+                value: "2025.02.15"
+              - label: stable
+                value: "2026.05"
 
     steps:
         
@@ -26,7 +28,7 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ~/.buildroot-ccache
-        key: buildroot-${{ matrix.config }}-ccache
+        key: buildroot-${{ matrix.version.value }}-${{ matrix.config }}-ccache
     
     - name: Setup Buildroot downloads cache
       uses: actions/cache@v4
@@ -36,14 +38,14 @@ jobs:
         
     - name: Prepare environment
       run: |
-        wget https://buildroot.org/downloads/buildroot-${{ env.buildroot-version }}.tar.gz
-        tar xzf buildroot-${{ env.buildroot-version }}.tar.gz
+        wget https://buildroot.org/downloads/buildroot-${{ matrix.version.value }}.tar.gz
+        tar xzf buildroot-${{ matrix.version.value }}.tar.gz
         sudo apt-get update
         sudo apt-get install graphviz python3-matplotlib
         
     - name: Build Images
       run: |
-        cd buildroot-${{ env.buildroot-version }}
+        cd buildroot-${{ matrix.version.value }}
         export BR2_DL_DIR=~/.buildroot-dl
         make BR2_EXTERNAL=../ tonio_${{ matrix.config }}_defconfig
         make
@@ -51,14 +53,14 @@ jobs:
     - name: Upload Images
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.config }} images
+        name: ${{ matrix.config }}-${{ matrix.version.label }} images
         path: |
-            buildroot-${{ env.buildroot-version }}/output/images
+            buildroot-${{ matrix.version.value }}/output/images
             board/${{ matrix.config }}/flash.sh
                 
     - name: Build Graphs
       run: |
-        cd buildroot-${{ env.buildroot-version }}
+        cd buildroot-${{ matrix.version.value }}
         make graph-size
         make graph-depends
         make graph-build
@@ -66,6 +68,6 @@ jobs:
     - name: Upload Graphs
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.config }} graphs
-        path: 'buildroot-${{ env.buildroot-version }}/output/graphs'
+        name: ${{ matrix.config }}-${{ matrix.version.label }} graphs
+        path: 'buildroot-${{ matrix.version.value }}/output/graphs'
 
