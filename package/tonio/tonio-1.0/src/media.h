@@ -54,6 +54,8 @@ int tn_media_track_total(tn_media_t *);
 char *tn_media_track_name(tn_media_t *);
 void tn_media_next(tn_media_t *);
 void tn_media_previous(tn_media_t *);
+void tn_media_reset(tn_media_t *);
+long tn_media_track_elapsed_ms(tn_media_t *);
 void tn_media_stop(tn_media_t *);
 
 void tn_media_volume_down(tn_media_t *);

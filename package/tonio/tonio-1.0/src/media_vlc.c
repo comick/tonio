@@ -322,17 +322,28 @@ void tn_media_next(tn_media_t *self) {
 void tn_media_previous(tn_media_t *self) {
     if (self->media_list_player == NULL) return;
 
+    I_CHECK(libvlc_media_list_player_previous(self->media_list_player), NULL);
+    _save_stream_positions(self);
+}
+
+void tn_media_reset(tn_media_t *self) {
+    if (self->media_list_player == NULL) return;
+
     libvlc_media_player_t *media_player = libvlc_media_list_player_get_media_player(self->media_list_player);
     P_CHECK(media_player, return);
-    libvlc_time_t time = libvlc_media_player_get_time(media_player);
-    I_CHECK(time, return);
-
-    // start current track if playing for more than 2 secs
-    if (time > 2000) libvlc_media_player_set_time(media_player, 0);
-    else I_CHECK(libvlc_media_list_player_previous(self->media_list_player), NULL);
+    libvlc_media_player_set_time(media_player, 0);
     _save_stream_positions(self);
-
     libvlc_media_player_release(media_player);
+}
+
+long tn_media_track_elapsed_ms(tn_media_t *self) {
+    if (self->media_list_player == NULL) return 0;
+
+    libvlc_media_player_t *media_player = libvlc_media_list_player_get_media_player(self->media_list_player);
+    P_CHECK(media_player, return 0);
+    libvlc_time_t time = libvlc_media_player_get_time(media_player);
+    libvlc_media_player_release(media_player);
+    return (long)time;
 }
 
 void tn_media_volume_down(tn_media_t *self) {

@@ -80,6 +80,8 @@ typedef struct tn_media {
     volatile bool next_requested;
     volatile bool prev_requested;
     volatile bool play_requested;
+    volatile bool reset_requested;
+    struct timeval track_start_time;
     uint8_t pending_card_id[4];
 
     /* Current playlist / track state (owned by playback thread) */
@@ -221,6 +223,7 @@ bool tn_media_play(tn_media_t *self, uint8_t *card_id) {
     self->stop_requested = false;
     self->next_requested = false;
     self->prev_requested = false;
+    self->reset_requested = false;
 
     if (!self->thread_running) {
         int ret = pthread_create(&self->thread, NULL,
@@ -283,6 +286,25 @@ void tn_media_previous(tn_media_t *self) {
     self->prev_requested = true;
     pthread_cond_signal(&self->cond);
     pthread_mutex_unlock(&self->mutex);
+}
+
+void tn_media_reset(tn_media_t *self) {
+    if (!self->is_playing) return;
+    pthread_mutex_lock(&self->mutex);
+    self->reset_requested = true;
+    pthread_cond_signal(&self->cond);
+    pthread_mutex_unlock(&self->mutex);
+}
+
+long tn_media_track_elapsed_ms(tn_media_t *self) {
+    if (!self->is_playing) return 0;
+    struct timeval now, tv;
+    pthread_mutex_lock(&self->mutex);
+    tv = self->track_start_time;
+    pthread_mutex_unlock(&self->mutex);
+    gettimeofday(&now, NULL);
+    return (now.tv_sec - tv.tv_sec) * 1000 +
+           (now.tv_usec - tv.tv_usec) / 1000;
 }
 
 /* Volume control */
@@ -617,8 +639,6 @@ static void *_playback_thread(void *arg) {
         /* Main decode/output loop */
         int track_idx = start_track;
         bool first_track = true;
-        struct timeval track_start_time = {0, 0};
-        bool track_timed = false;
 
         while (1) {
             /* Check commands under mutex. */
@@ -636,24 +656,26 @@ static void *_playback_thread(void *arg) {
                 _save_stream_positions(self, track_idx, 0.0f);
                 track_idx = (track_idx + 1) % track_count;
                 first_track = false;
-                track_timed = false;
                 continue;
             }
             if (self->prev_requested) {
                 self->prev_requested = false;
                 pthread_mutex_unlock(&self->mutex);
 
-                if (track_timed) {
-                    /* Playing for more than 2 s → restart current track. */
-                    _save_stream_positions(self, track_idx, 0.0f);
-                    /* The loop will reopen the same track below. */
-                } else {
-                    if (track_idx > 0) track_idx--;
-                    else track_idx = track_count - 1;
-                    _save_stream_positions(self, track_idx, 0.0f);
-                }
+                /* Go to previous track. */
+                if (track_idx > 0) track_idx--;
+                else track_idx = track_count - 1;
+                _save_stream_positions(self, track_idx, 0.0f);
                 first_track = false;
-                track_timed = false;
+                continue;
+            }
+            if (self->reset_requested) {
+                self->reset_requested = false;
+                pthread_mutex_unlock(&self->mutex);
+
+                /* Restart current track from the beginning. */
+                _save_stream_positions(self, track_idx, 0.0f);
+                first_track = false;
                 continue;
             }
             self->current_track = track_idx;
@@ -682,11 +704,8 @@ static void *_playback_thread(void *arg) {
                 first_track = false;
             }
 
-            /* Start timing for "previous" logic. */
-            if (!track_timed) {
-                gettimeofday(&track_start_time, NULL);
-                track_timed = true;
-            }
+            /* Record track start time for elapsed-time query. */
+            gettimeofday(&self->track_start_time, NULL);
 
             /* Decode loop for this track */
             int ret;
@@ -699,6 +718,7 @@ static void *_playback_thread(void *arg) {
                 bool stop = self->stop_requested;
                 bool next = self->next_requested;
                 bool prev = self->prev_requested;
+                bool reset = self->reset_requested;
                 pthread_mutex_unlock(&self->mutex);
 
                 if (stop) {
@@ -708,7 +728,7 @@ static void *_playback_thread(void *arg) {
                     op_free(of);
                     goto done;
                 }
-                if (next || prev) {
+                if (next || prev || reset) {
                     ogg_int64_t cur = op_pcm_tell(of);
                     _save_stream_positions(self, track_idx,
                                            _pcm_offset_to_pos(of, cur));
@@ -741,12 +761,7 @@ static void *_playback_thread(void *arg) {
                     nanosleep(&ts, NULL);
                 }
 
-                /* Update elapsed time for prev-track logic. */
-                struct timeval now;
-                gettimeofday(&now, NULL);
-                long elapsed_ms = (now.tv_sec - track_start_time.tv_sec) * 1000 +
-                                  (now.tv_usec - track_start_time.tv_usec) / 1000;
-                if (elapsed_ms > 2000) track_timed = true;
+
             }
 
             /* End of track: save position, advance, loop. */
@@ -757,7 +772,6 @@ static void *_playback_thread(void *arg) {
                 track_idx = (track_idx + 1) % track_count;
             }
             first_track = false;
-            track_timed = false;
         }
 
     done:
@@ -777,7 +791,7 @@ static void *_playback_thread(void *arg) {
     return NULL;
 }
 
-// Utilioty functions
+// Utility functions
 
 char *find_playlist_filename(char *media_root, uint8_t *card_id) {
     char *dir_path = NULL, *result = NULL;

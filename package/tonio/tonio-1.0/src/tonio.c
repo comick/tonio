@@ -167,8 +167,13 @@ static int _loop_interactive(uint8_t card_id[5], uint8_t selected_card_id[5]) {
                     continue;
                 }
                 if (strcmp(line, "p") == 0 || strcmp(line, "prev") == 0) {
-                    tn_media_previous(media);
-                    printf("-> previous track\n");
+                    if (tn_media_track_elapsed_ms(media) < 2000) {
+                        tn_media_previous(media);
+                        printf("-> previous track\n");
+                    } else {
+                        tn_media_reset(media);
+                        printf("-> restart current track\n");
+                    }
                     continue;
                 }
                 if (strcmp(line, "+") == 0 || strcmp(line, "volup") == 0) {
@@ -264,7 +269,11 @@ static int _loop(uint8_t card_id[5], uint8_t selected_card_id[5]) {
 
                     int current_prev_state = tn_input_btn_prev(input);
                     if (current_prev_state == 1 && last_prev_state == 0) {
-                        tn_media_previous(media);
+                        if (tn_media_track_elapsed_ms(media) < 2000) {
+                            tn_media_previous(media);
+                        } else {
+                            tn_media_reset(media);
+                        }
                     }
                     last_prev_state = current_prev_state;
 
