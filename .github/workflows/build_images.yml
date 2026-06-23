@@ -15,8 +15,8 @@ jobs:
         matrix:
             config: [raspberrypi3]
             version:
-              - label: LTS
-                value: "2025.02.15"
+              #- label: LTS
+              #  value: "2025.02.15"
               - label: stable
                 value: "2026.05"
 
