@@ -10,12 +10,12 @@ TONIO_SITE_METHOD = local
 
 TONIO_DEPENDENCIES = host-pkgconf alsa-lib libgpiod2 libmicrohttpd libconfuse wireless_tools
 
-ifeq ($(BR2_PACKAGE_TONIO_MEDIA_OPUS),y)
+ifeq ($(BR2_PACKAGE_TONIO_MEDIA_OPUSFILE),y)
 	TONIO_DEPENDENCIES += opusfile
-	TONIO_CONF_OPTS += -DMEDIA_BACKEND=opus
-else ifeq ($(BR2_PACKAGE_TONIO_MEDIA_VLC),y)
+	TONIO_CONF_OPTS += -DMEDIA_BACKEND=opusfile
+else ifeq ($(BR2_PACKAGE_TONIO_MEDIA_LIBVLC),y)
 	TONIO_DEPENDENCIES += vlc
-	TONIO_CONF_OPTS += -DMEDIA_BACKEND=vlc
+	TONIO_CONF_OPTS += -DMEDIA_BACKEND=libvlc
 endif
 
 define TONIO_INSTALL_INIT_SYSV

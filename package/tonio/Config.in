@@ -13,19 +13,19 @@ menuconfig BR2_PACKAGE_TONIO
 if BR2_PACKAGE_TONIO
     choice
         prompt "Media backend"
-        default BR2_PACKAGE_TONIO_MEDIA_OPUS
+        default BR2_PACKAGE_TONIO_MEDIA_OPUSFILE
         help
             Select the media playback backend for Tonio.
 
-        config BR2_PACKAGE_TONIO_MEDIA_OPUS
-            bool "opusfile (lightweight, no VLC)"
+        config BR2_PACKAGE_TONIO_MEDIA_OPUSFILE
+            bool "opusfile (lightweight, only opus decoding)"
             select BR2_PACKAGE_OPUSFILE
             help
                 Use the opusfile library + ALSA PCM for Opus audio playback.
                 This is a lightweight backend that does not require VLC.
 
-        config BR2_PACKAGE_TONIO_MEDIA_VLC
-            bool "VLC (full libvlc)"
+        config BR2_PACKAGE_TONIO_MEDIA_LIBVLC
+            bool "libvlc (heavyweight, multiple formats supported)"
             select BR2_PACKAGE_VLC
             help
                 Use the full VLC media backend via libvlc.

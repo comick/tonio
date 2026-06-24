@@ -12,7 +12,7 @@ jobs:
     container: ubuntu:plucky
     strategy:
       matrix:
-        media: [vlc, opus]
+        media: [libvlc, opusfile]
     steps:
       - name: Install dependencies
         run: |

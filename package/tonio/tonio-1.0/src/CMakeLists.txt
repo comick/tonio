@@ -27,7 +27,7 @@ target_link_libraries(tonio PRIVATE
 )
 
 # Media-backend-specific libraries
-if(MEDIA_BACKEND STREQUAL "vlc")
+if(MEDIA_BACKEND STREQUAL "libvlc")
     target_link_libraries(tonio PRIVATE ${VLC_LIBRARIES})
     target_include_directories(tonio PRIVATE ${VLC_INCLUDE_DIRS})
 else()

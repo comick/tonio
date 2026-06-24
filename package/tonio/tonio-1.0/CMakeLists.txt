@@ -3,13 +3,13 @@ project(tonio VERSION 1.0 LANGUAGES C)
 
 include(GNUInstallDirs)
 
-# Media backend option: opus (default) or vlc
-set(MEDIA_BACKEND "opus" CACHE STRING "Media backend: opus or vlc")
+# Media backend option: opusfile (default) or libvlc
+set(MEDIA_BACKEND "opusfile" CACHE STRING "Media backend: opusfile or libvlc")
 
 # Validate backend option
-if(NOT MEDIA_BACKEND STREQUAL "opus" AND NOT MEDIA_BACKEND STREQUAL "vlc")
+if(NOT MEDIA_BACKEND STREQUAL "opusfile" AND NOT MEDIA_BACKEND STREQUAL "libvlc")
     message(FATAL_ERROR "Unknown media backend '${MEDIA_BACKEND}'. "
-                        "Supported backends: opus, vlc")
+                        "Supported backends: opusfile, libvlc")
 endif()
 
 # Required packages via pkg-config 
@@ -32,14 +32,14 @@ if(NOT IW_LIBRARY)
 endif()
 
 # Media-backend-specific dependencies 
-if(MEDIA_BACKEND STREQUAL "vlc")
+if(MEDIA_BACKEND STREQUAL "libvlc")
     pkg_check_modules(VLC REQUIRED libvlc)
     set(MEDIA_SRC media_vlc.c)
-    set(MEDIA_BACKEND_VLC 1)
+    set(MEDIA_BACKEND_LIBVLC 1)
 else()
     pkg_check_modules(OPUSFILE REQUIRED opusfile)
     set(MEDIA_SRC media_opus.c)
-    set(MEDIA_BACKEND_OPUS 1)
+    set(MEDIA_BACKEND_OPUSFILE 1)
 endif()
 
 # Optional: check library for tests
