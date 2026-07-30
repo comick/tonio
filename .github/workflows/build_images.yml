@@ -18,7 +18,7 @@ jobs:
               #- label: LTS
               #  value: "2025.02.15"
               - label: stable
-                value: "2026.05"
+                value: "2026.05.1"
 
     steps:
         
