@@ -22,24 +22,31 @@ jobs:
 
     steps:
         
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
             
     - name: Setup Buildroot ccache
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: ~/.buildroot-ccache
-        key: buildroot-${{ matrix.version.value }}-${{ matrix.config }}-ccache
-    
+        key: buildroot-ccache-${{ matrix.version.value }}-${{ matrix.config }}
+        save-always: true
+
     - name: Setup Buildroot downloads cache
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.buildroot-dl
-        key: buildroot-dl
+        key: buildroot-dl-${{ matrix.version.value }}
+        restore-keys: |
+          buildroot-dl-
+        save-always: true
         
     - name: Prepare environment
       run: |
-        wget https://buildroot.org/downloads/buildroot-${{ matrix.version.value }}.tar.gz
-        tar xzf buildroot-${{ matrix.version.value }}.tar.gz
+        if [ ! -f ~/.buildroot-dl/buildroot-${{ matrix.version.value }}.tar.gz ]; then
+          mkdir -p ~/.buildroot-dl
+          wget -O ~/.buildroot-dl/buildroot-${{ matrix.version.value }}.tar.gz https://buildroot.org/downloads/buildroot-${{ matrix.version.value }}.tar.gz
+        fi
+        tar xzf ~/.buildroot-dl/buildroot-${{ matrix.version.value }}.tar.gz
         sudo apt-get update
         sudo apt-get install graphviz python3-matplotlib
         
@@ -70,4 +77,3 @@ jobs:
       with:
         name: ${{ matrix.config }}-${{ matrix.version.label }} graphs
         path: 'buildroot-${{ matrix.version.value }}/output/graphs'
-
