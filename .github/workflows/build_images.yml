@@ -16,9 +16,9 @@ jobs:
             config: [raspberrypi3]
             version:
               #- label: LTS
-              #  value: "2025.02.15"
+              #  value: "2025.02.19"
               - label: stable
-                value: "2026.05.1"
+                value: "2026.08.1"
 
     steps:
         
